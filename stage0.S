@@ -167,29 +167,6 @@ decompress_shrinkler:
     b .Lliteral
      li $v0, 1
 
-.Lloop:
-    li $v0, 0
-    bal .Llzdecode
-     addu ctx, parity, $sp
-    bnez $v0, .Lmatch
-     xori $v0, 1
-
-.Lliteral:
-    li prev_match, 0
-    li lit_len, 7
-    addu lit_ctx, parity, $sp
-.Lliteral_loop:
-    sll $v0, 1
-    bal .Llzdecode
-     addu ctx, lit_ctx, $v0
-    bnez lit_len, .Lliteral_loop
-     addiu lit_len, -1
-
-    xori parity, 0x200
-    sb $v0, 0(outbuf)
-    b .Lloop
-     addiu outbuf, 1
-
 .Lmatch:
     bgezal prev_match, .Llzdecode
      addiu ctx, $sp, CONTEXT_REPEATED*2 
@@ -215,8 +192,29 @@ decompress_shrinkler:
     addiu match_len, -1
     bgtz match_len, .Lmatch1_loop               # check we went past match_len
      addiu outbuf, 1
-    b .Lloop                                    # jump to main loop
-     nop
+
+.Lloop:
+    li $v0, 0
+    bal .Llzdecode
+     addu ctx, parity, $sp
+    bnez $v0, .Lmatch
+     xori $v0, 1
+
+.Lliteral:
+    li prev_match, 0
+    li lit_len, 7
+    addu lit_ctx, parity, $sp
+.Lliteral_loop:
+    sll $v0, 1
+    bal .Llzdecode
+     addu ctx, lit_ctx, $v0
+    bnez lit_len, .Lliteral_loop
+     addiu lit_len, -1
+
+    xori parity, 0x200
+    sb $v0, 0(outbuf)
+    b .Lloop
+     addiu outbuf, 1
 
 .Lend:
     jr ra3
