@@ -252,7 +252,7 @@ static inline void cop0_clear_cache(void)
     asm("mtc0 $0, $28");  // TagLo
     asm("mtc0 $0, $29");  // TagHi
     cache_op((void*)0x80000000, INDEX_STORE_TAG_D, 0x10, 0x2000);
-    cache_op((void*)0x80000000, INDEX_STORE_TAG_I, 0x20, 0x4000);
+    //cache_op((void*)0x80000000, INDEX_STORE_TAG_I, 0x20, 0x4000);
 }
 
 __attribute__((noreturn))

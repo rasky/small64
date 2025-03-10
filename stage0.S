@@ -36,21 +36,25 @@
 #else
     .long 0x80371240
 #endif
-clear_cache:
-    mtc0 $0, $28  # taglo
-    mtc0 $0, $29  # taghi
-    li $t0, 0x80000000
-    la $a0, __stage1            # Source pointer for decompression (needed later)
-    b .Lclear_cache_loop
-    addiu $t1, $t0, 16*1024
+post_stage1_decomp:
+    # This code is run after stage1 has been decompressed.
+    # a2 now points to the end of the decompressed stage1 in cache.
+    # Now copy the decompressed stage1 into IMEM, just after stage0. We can't
+    # run stage1 from cache because icache fetches only from RDRAM, not dcache.
+    li $a1, 0x80900000      # src
+    li $a0, 0xA4000000      # dst
+    addiu $sp, $a0, 0x1000
+    lui $ra, %hi(stage2_decomp)
+    b .Lcopy_loop
+    addiu $ra, %lo(stage2_decomp)
     .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
-.Lclear_cache_loop:
-    cache (2<<2)|1, 0($t0)     # INDEX_STORE_TAG_D
-    cache (2<<2)|0, 0($t0)     # INDEX_STORE_TAG_I
-    bne $t0, $t1, .Lclear_cache_loop
-     addiu $t0, 16
-    jr $ra
-     nop
+.Lcopy_loop:
+    lw $t0, 0($a1)
+    addiu $a1, 4
+    sw $t0, 0x1000($a0)
+    bne $a2, $a1, .Lcopy_loop
+     addiu $a0, 4
+    jr $sp                      # Jump to stage1 in IMEM
 
 
 # ============================
@@ -64,48 +68,24 @@ clear_cache:
     .globl _start
 
 _start:
-    # Reset the CPU cache. The status is "invalid" at boot, so better safe
-    # than sorry.
-    la clear_cache_addr, clear_cache
-    jalr clear_cache_addr
-
     # Decompress stage1 into CPU cache. The decompression routine needs 8/16/32
     # bit writes to the destination buffer, and the cache is the only available
     # right now that allows for these. The exact address won't matter (as
     # RDRAM is not initialized yet and we are not going to flush the cache),
     # but we use 0x80002000 as address so that emulators that don't emulate
     # CPU cache stil have RDRAM here.
-    li $a2, 0x80000000             # Destination pointer: CPU cache
-    # la $a0, __stage1                # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
-                                      # This opcode is moved within the clear_cache function
-    bal decompress_shrinkler
-     addiu $sp, $a2, 0x2000           # Decompression also needs the stack: end of CPU cache
+     li $a2, 0x80900000             # Destination pointer: CPU cache
+    addiu $sp, $a2, 0x2000         # Decompression also needs the stack: end of CPU cache
+    la $a0, __stage1               # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
+    b decompress_shrinkler
+     li $ra, 0xB0000000            # Post-decompression go to ROM start
 
-    # a2 now points to the end of the decompressed stage1 in cache.
-    # Now copy the decompressed stage1 into IMEM, just after stage0. We can't
-    # run stage1 from cache because icache fetches only from RDRAM, not dcache.
-    li $a1, 0x80000000      # src
-    li $a0, 0xA4000000      # dst
-.Lcopy_loop:
-    lw $t0, 0($a1)
-    addiu $a1, 4
-    sw $t0, 0x1000($a0)
-    bne $a2, $a1, .Lcopy_loop
-     addiu $a0, 4
-
-    # Reset the cache again. We want to avoid the cache to flush back to RDRAM
-    # after it has been intialized, so clear it.
-    jalr clear_cache_addr
-     lui $sp, %hi(STACK1_TOP)
-
-    # Call stage1. Initialize the stack to STACK1_TOP which is dcache again,
-    # but it's in the high part of RDRAM where we are going later to put stage2.
-    bal _start+0x1000-0x40       # Convoluted way to point to IMEM in a section-relative way
-     addiu $sp, %lo(STACK1_TOP)
-
+stage2_decomp:
     # Stage1 returned the memory size in $v0
     # Prepare for stage2. Stage2 will run from 0x8000'0000
-    la $a0, __stage2 #- 0xA4000000 + 0xB0000000  # calculate PI address instead of DMEM
+    # Decompress stage2 from ROM (PI address) because DMEM might have been
+    # corrupted, as it was used as stack during stage1
+    la $a0, __stage2 - 0xA4000000 + 0xB0000000  # calculate PI address of stage2
     li $a2, 0xA0000000            # Decompression output pointer (uncached address)
     li $ra, 0x80000000            # Stage2 entrypoint (cached address)
     addu $sp, $v0, $ra            # $sp start at 0x8000'0000+memsize

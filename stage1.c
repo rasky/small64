@@ -22,9 +22,13 @@ int stage1(void)
     *IPL3_TV_TYPE = ipl2_tvType;
     *IPL3_IQUE = (*MI_VERSION & 0xF0) == 0xB0;
 
-    const int memsize = 4*1024*1024;
+    // Clear COP0 cache. At boot, it may contain stale data that might cause
+    // invalid cache writes.
+    cop0_clear_cache();
 
+    // Acknowledge the boot with PIF
     si_write(0x7FC, 0x8);
 
+    const int memsize = 4*1024*1024;
     return memsize;
 }
