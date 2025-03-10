@@ -475,7 +475,7 @@ void getCirclePoint(float t, float *outX, float *outY) {
         y = 1.0f;
     }
     // Normalize (x,y) to produce a point on the unit circle.
-    float len = sqrtf(x * x + y * y);
+    float len = __builtin_sqrtf(x * x + y * y);
     *outX = x / len;
     *outY = y / len;
 }
@@ -571,12 +571,12 @@ void mesh(void)
             *vtx++ = (R + r * minorX1) * majorY0;
             *vtx++ = r * minorY1;
 
-            tnl(vtx-12, 4);
-            w64 = (uint64_t*)w;
-            *w64++ = RdpSetPrimColor(RGBA32(0xFF, 0x40+j*0x10, 0xE0-j*0x10, 0xFF));
-            w = (uint32_t*)w64;
-            w = rdpq_triangle_cpu(w, vtx-12, vtx-9, vtx-6);
-            w = rdpq_triangle_cpu(w, vtx-12, vtx-6, vtx-3);
+            w = tnl(vtx-12, 4, w);
+            // w64 = (uint64_t*)w;
+            // *w64++ = RdpSetPrimColor(RGBA32(0xFF, 0x40+j*0x10, 0xE0-j*0x10, 0xFF));
+            // w = (uint32_t*)w64;
+            // w = rdpq_triangle_cpu(w, vtx-12, vtx-9, vtx-6);
+            // w = rdpq_triangle_cpu(w, vtx-12, vtx-6, vtx-3);
         }
     }
 
