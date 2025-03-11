@@ -18,6 +18,7 @@
 #define inbuf           $s1
 #define outbuf          $s2
 #define outbuf_end      $s0
+#define shr_return      $a3
 
 
     .set at
@@ -86,7 +87,7 @@ _start:
     addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
     addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
     b decompress_shrinkler
-     li $ra, 0xB0000000            # Post-decompression go to ROM start
+     li shr_return, 0xB0000000            # Post-decompression go to ROM start
 
 stage2_decomp:
     # Stage1 returned the memory size in $v0
@@ -97,9 +98,9 @@ stage2_decomp:
     # inbuf = PI address of stage12. We read from PI this time because DMEM might have been corrupted
     #         by stage1 (it was used as stack)
     li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
-    li $ra, 0x80000000            # Stage2 entrypoint (cached address)
-    addu $sp, $v0, $ra            # $sp start at 0x8000'0000+memsize
-    addiu $ra, STAGE1_SIZE
+    li shr_return, 0x80000000     # Stage2 entrypoint (cached address)
+    addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
+    addiu shr_return, STAGE1_SIZE
 
     ###################################################
     # Fallthrough to shrinkler decompression
@@ -111,14 +112,13 @@ stage2_decomp:
 #define match_off       $t5
 #define prev_match      $t6
 #define lit_len         $t7
-#define match_len       $t7
 #define num_len         $t7
 #define ctx             $t8
 #define parity          $v1
+#define match_ptr       $k0
 
 #define ra2             $a1
 #define lit_ctx         $a1
-#define ra3             $a3
 
 #define ROUND_UP(n,d)   (((n) + (d) - 1) / (d) * (d))
 
@@ -135,16 +135,14 @@ stage2_decomp:
 
 
 decompress_shrinkler:
-    addiu $t1, $sp, -16
+    addiu $t1, $sp, -18
     addiu $sp, $sp, -ROUND_UP(NUM_CONTEXTS*2, 8)-16
-    move $t0, $sp
     li intervalsize, 0x8000
 .Linit_contexts_loop:
-    sh intervalsize, 0($t0)
-    blt $t0, $t1, .Linit_contexts_loop
-     addiu $t0, 2
+    sh intervalsize, 0($t1)
+    blt $sp, $t1, .Linit_contexts_loop
+     addiu $t1, -2
 
-    move ra3, $ra
     lwu intervalvalue, 0(inbuf)
     addiu inbuf, 4
     dsll intervalvalue, 31
@@ -154,27 +152,26 @@ decompress_shrinkler:
      li $v0, 1
 
 .Lmatch:
-    bltzal prev_match, .Llzdecode
+    bltzal prev_match, .Llzdecode              # prev_match<0: was literal
      addiu ctx, $sp, CONTEXT_REPEATED*2 
     sll $v0, 31
     addiu ctx, $sp, CONTEXT_GROUP_OFFSET*2
     bgezal $v0, .Llzdecode_number
      addiu $v0, match_off, 2
-    addiu $v0, -2
-    beqz $v0, .Lend
-     move match_off, $v0
+    addiu match_off, $v0, -2
+    beqz match_off, .Lend
+     sub match_ptr, outbuf, match_off            # calculate start of match
     bal .Llzdecode_number
      addiu ctx, $sp, CONTEXT_GROUP_LENGTH*2
-    move prev_match, $v0
-    sub $t0, outbuf, match_off                  # calculate start of match
+    move prev_match, $v0                        # store match_len into prev_match
 .Lmatch1_loop:                                  # 1-byte copy loop
-    lbu $v0, 0($t0)                             # load 1 byte
-    addiu $t0, 1
+    lbu $v0, 0(match_ptr)                       # load 1 byte
+    addiu match_ptr, 1
 .Lstore_byte:
     sb $v0, 0(outbuf)                           # store 1 byte
     addiu outbuf, 1
-    daddiu prev_match, -1
-    bgtz prev_match, .Lmatch1_loop               # check we went past match_len
+    daddiu prev_match, -1                       # check if there are more bytes to copy
+    bgtz prev_match, .Lmatch1_loop              # check we went past match_len
      xori parity, 0x200
 
 .Lloop:
@@ -198,8 +195,7 @@ decompress_shrinkler:
      nop
 
 .Lend:
-    jr ra3
-     addiu $sp, $sp, ROUND_UP(NUM_CONTEXTS*2, 8)+16
+    jr shr_return     
 
 ###################################################
 # Function: .Llzdecode_number
@@ -216,7 +212,7 @@ decompress_shrinkler:
 ###################################################
 
 .Llzdecode_number:
-    move ra2, $ra
+     move ra2, $ra
     li num_len, 0
 .Llzdecode_number_len:
     li $v0, 0
