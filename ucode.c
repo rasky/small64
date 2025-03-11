@@ -27,10 +27,41 @@ static inline void ucode_set_vertices_address(uint32_t addr) {
 
 /**
  * Sets new address where the ucode will write RDP commands to
- * @param addr start of queue
+ * @param addr
  */
 static inline void ucode_set_rdp_queue(uint32_t addr) {
   ((volatile uint32_t*)SP_DMEM)[3] = addr;
+}
+
+static inline void ucode_set_srt(float scale, float rot[3]) {
+
+  float cosR0 = mm_cosf(rot[0]);
+  float cosR2 = mm_cosf(rot[2]);
+  float cosR1 = mm_cosf(rot[1]);
+
+  float sinR0 = mm_sinf(rot[0]);
+  float sinR1 = mm_sinf(rot[1]);
+  float sinR2 = mm_sinf(rot[2]);
+
+  float mat[3*3] = {
+    scale * cosR2 * cosR1, 
+    scale * (cosR2 * sinR1 * sinR0 - sinR2 * cosR0), 
+    scale * (cosR2 * sinR1 * cosR0 + sinR2 * sinR0),
+    scale * sinR2 * cosR1, 
+    scale * (sinR2 * sinR1 * sinR0 + cosR2 * cosR0), 
+    scale * (sinR2 * sinR1 * cosR0 - cosR2 * sinR0),
+    -scale * sinR1, 
+    scale * cosR1 * sinR0, 
+    scale * cosR1 * cosR0
+  };
+
+
+  SP_DMEM[16/4 + 0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[16/4 + 1] = ((int32_t)(mat[2] * 0x7FFF) << 16);
+  SP_DMEM[16/4 + 2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[16/4 + 3] = ((int32_t)(mat[5] * 0x7FFF) << 16);
+  SP_DMEM[16/4 + 4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[16/4 + 5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
 }
 
 /**
@@ -44,10 +75,6 @@ static inline void ucode_run()
   *SP_STATUS = SP_WSTATUS_CLEAR_HALT | SP_WSTATUS_CLEAR_BROKE | SP_WSTATUS_SET_INTR_BREAK;
 }
 
-/**
- * Wait for the RSP to be halted.
- * After this parameters can be changed.
- */
 static inline void ucode_sync()
 {
   while(!(*SP_STATUS & SP_STATUS_HALTED)){}

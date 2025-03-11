@@ -167,14 +167,18 @@ void demo(void)
         
         mesh();
 
-        //ucode_set_fb_address((uint32_t)vi_buffer_draw);
-        *DP_START = RPD_DPL_3D;
-        *DP_END = RPD_DPL_3D;
         ucode_set_rdp_queue(RPD_DPL_3D);
-        ucode_run();
-        
-        dp_wait();
-        
+        ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f});
+
+        for(uint32_t v = (uint32_t)VERTEX_BUFFER; v<(uint32_t)VERTEX_BUFFER+32*6; v+=32) 
+        {
+          *DP_START = RPD_DPL_3D;
+          *DP_END = RPD_DPL_3D;
+          ucode_set_vertices_address(v);
+          ucode_run();
+          dp_wait();
+        }
+    
         //draw_scroller(vi_buffer_draw);
     
         // int16_t *ai_buffer = ai_poll();
