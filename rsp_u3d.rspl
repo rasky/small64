@@ -5,12 +5,16 @@ state
   u8 SHIFT_DATA[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
   u32 VERTEX_ADDR;
   u32 DPL_ADDR;
+
+  // fractional matrix for scaling + rotation
+  alignas(8) u16 MATRIX[3][4];
 }
 
 temp_state
 {
   alignas(16)
   u8 DPL_BUFF[1024];
+  u8 VERT_BUFF[1024];
 }
 
 // DMA from RDRAM into DMEM
@@ -56,10 +60,13 @@ macro encodeRectPos(u32 outA, u32 outB, vec16 pos)
 macro writePointRect(vec16 p)
 {
   vec16 posSize = 0;
-  posSize.X = 16;
-  posSize.Y = 16;
-
-  posSize += p;
+  vec16 posStart = p;
+  
+  posStart.X = posStart.x;
+  posStart.Y = posStart.y;
+  posSize.X = 8;
+  posSize.Y = 8;
+  posSize += posStart;
 
   u32 rectStart, rectEnd;
   encodeRectPos(rectStart, rectEnd, posSize);
@@ -94,12 +101,46 @@ function Main()
   const u8 CMD_SYNC_FULL  = 0x29;
   const u8 CMD_FILL_RECT  = 0x36;
 
+  vec16 screenOffset = 0x200;
+  vec16 screenScale = 4;
+
+  // Load vertices
+  u32 vertRDRAM = load(VERTEX_ADDR);
+  u32 vertDMEM  = DPL_BUFF;
+  u32 vertSize = 32;
+  u32 vertDMEMEnd = vertDMEM + vertSize;
+
+  dmaInAsync(vertRDRAM, vertDMEM, vertSize);
+
   u32 dplRDRAM     = load(DPL_ADDR);
   u16 dplDMEM      = DPL_BUFF;
   u16 dplDMEMStart = DPL_BUFF;
 
-  vec16 pos = 0x80;
-  writePointRect(pos);
+  vec16 mat0 = load(MATRIX, 0x00).xyzwxyzw;
+  vec16 mat1 = load(MATRIX, 0x08).xyzwxyzw;
+  vec16 mat2 = load(MATRIX, 0x10).xyzwxyzw;
+
+  dmaAwait();
+
+  loop {
+    vec16 pos = load(vertDMEM);
+    //print(pos);
+
+    // transform position, this is only rotation and scaling.
+    // since the matrix is a 16bit fractional, we can also only scale down here
+    VTEMP = mat0:sfract  * pos.xxxxXXXX;
+    VTEMP = mat1:sfract +* pos.yyyyYYYY;
+    pos   = mat2:sfract +* pos.zzzzZZZZ;
+
+    pos *= screenScale;
+    pos += screenOffset;
+    
+    writePointRect(pos);
+    pos.xyzw = pos.XYZW;
+    writePointRect(pos);
+
+    vertDMEM += 16;
+  } while(vertDMEM != vertDMEMEnd)
 
   // Sync full 
   store(CMD_SYNC_FULL, dplDMEM);

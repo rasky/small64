@@ -39,6 +39,11 @@ static int32_t float_to_s16_16(float f)
     return mm_floorf(f * 65536.f);
 }
 
+typedef struct {
+  uint16_t pos[3];
+  uint16_t color;
+} u3d_vertex;
+
 #define VERTEX_SIZE     3       //x,y,z
 #define VTX_POS_OFFSET  0
 #define VTX_Z_OFFSET    2
@@ -497,7 +502,7 @@ void mesh(void)
     int numQuads = numMajor * numMinor;
     int totalVertices = numQuads * 4;
 
-    float *vtx = VERTEX_BUFFER;
+    u3d_vertex *vtx = VERTEX_BUFFER;
     uint64_t *w64 = RDP_BUFFER;
 
     *w64++ = RdpSyncPipe();
@@ -523,16 +528,35 @@ void mesh(void)
                 // Compute the four vertices for the current quad.
                 float rcv0 = R + r * mm_cosf(v0);
                 float rcv1 = R + r * mm_cosf(v1);
-                *vtx++ = rcv0 * mm_cosf(u0); *vtx++ = rcv0 * mm_sinf(u0); *vtx++ = r * mm_sinf(v0);
-                *vtx++ = rcv0 * mm_cosf(u1); *vtx++ = rcv0 * mm_sinf(u1); *vtx++ = r * mm_sinf(v0);
-                *vtx++ = rcv1 * mm_cosf(u1); *vtx++ = rcv1 * mm_sinf(u1); *vtx++ = r * mm_sinf(v1);
-                *vtx++ = rcv1 * mm_cosf(u0); *vtx++ = rcv1 * mm_sinf(u0); *vtx++ = r * mm_sinf(v1);
+
+                #define TO_U16(x) ((int16_t)(x * 64.0f))
+
+                vtx[0].pos[0] = TO_U16(rcv0 * mm_cosf(u0));
+                vtx[0].pos[1] = TO_U16(rcv0 * mm_sinf(u0));
+                vtx[0].pos[2] = TO_U16(r * mm_sinf(v0));
+              
+                vtx[1].pos[0] = TO_U16(rcv0 * mm_cosf(u1));
+                vtx[1].pos[1] = TO_U16(rcv0 * mm_sinf(u1));
+                vtx[1].pos[2] = TO_U16(r * mm_sinf(v0));
+
+                vtx[2].pos[0] = TO_U16(rcv1 * mm_cosf(u1));
+                vtx[2].pos[1] = TO_U16(rcv1 * mm_sinf(u1));
+                vtx[2].pos[2] = TO_U16(r * mm_sinf(v1));
+
+                vtx[3].pos[0] = TO_U16(rcv1 * mm_cosf(u0));
+                vtx[3].pos[1] = TO_U16(rcv1 * mm_sinf(u0));
+                vtx[3].pos[2] = TO_U16(r * mm_sinf(v1));
+
+                vtx += 4;
             }
         }
+
+        vtx[0].pos[0] = 0xFFFF;
         created = true;
     }
 
-    w = tnl((float*)VERTEX_BUFFER, totalVertices, w);
+    //w = tnl((float*)VERTEX_BUFFER, totalVertices, w);
+
 
 #else
     // Loop over major (u0, u1) and minor (v0, v1) parameters.
@@ -581,7 +605,7 @@ void mesh(void)
     }
 
 #endif
-    w64 = (uint64_t*)w;
+    /*w64 = (uint64_t*)w;
     *w64++ = RdpSyncFull();
 
     debugf("Vertices: %p-%p (%d)\n", VERTEX_BUFFER, vtx, totalVertices);
@@ -590,4 +614,5 @@ void mesh(void)
     *DP_START = (uint32_t)RDP_BUFFER;
     *DP_END = (uint32_t)w64;
     while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
+    */
 }
