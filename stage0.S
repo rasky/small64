@@ -156,7 +156,7 @@ decompress_shrinkler:
      li $v0, 1
 
 .Lmatch:
-    bgezal prev_match, .Llzdecode
+    bltzal prev_match, .Llzdecode
      addiu ctx, $sp, CONTEXT_REPEATED*2 
     sll $v0, 31
     addiu ctx, $sp, CONTEXT_GROUP_OFFSET*2
@@ -167,19 +167,17 @@ decompress_shrinkler:
      move match_off, $v0
     bal .Llzdecode_number
      addiu ctx, $sp, CONTEXT_GROUP_LENGTH*2
-    move match_len, $v0
-    andi $t0, match_len, 1
-    sll $t0, 9
-    xor parity, $t0
-    li prev_match, 1<<31
-    sub $v0, outbuf, match_off                  # calculate start of match
+    move prev_match, $v0
+    sub $t0, outbuf, match_off                  # calculate start of match
 .Lmatch1_loop:                                  # 1-byte copy loop
-    lbu $t0, 0($v0)                             # load 1 byte
-    addiu $v0, 1
-    sb $t0, 0(outbuf)                           # store 1 byte
-    addiu match_len, -1
-    bgtz match_len, .Lmatch1_loop               # check we went past match_len
-     addiu outbuf, 1
+    lbu $v0, 0($t0)                             # load 1 byte
+    addiu $t0, 1
+.Lstore_byte:
+    sb $v0, 0(outbuf)                           # store 1 byte
+    addiu outbuf, 1
+    daddiu prev_match, -1
+    bgtz prev_match, .Lmatch1_loop               # check we went past match_len
+     xori parity, 0x200
 
 .Lloop:
     bge outbuf, outbuf_end, .Lend
@@ -190,20 +188,16 @@ decompress_shrinkler:
      xori $v0, 1
 
 .Lliteral:
-    li prev_match, 0
-    li lit_len, 7
     addu lit_ctx, parity, $sp
 .Lliteral_loop:
     sll $v0, 1
     bal .Llzdecode
      addu ctx, lit_ctx, $v0
-    bnez lit_len, .Lliteral_loop
-     addiu lit_len, -1
-
-    xori parity, 0x200
-    sb $v0, 0(outbuf)
-    b .Lloop
-     addiu outbuf, 1
+    sll prev_match, $v0, 23
+    bgez prev_match, .Lliteral_loop
+     nop
+    b .Lstore_byte
+     nop
 
 .Lend:
     jr ra3
