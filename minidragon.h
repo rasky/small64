@@ -126,6 +126,21 @@ typedef uint64_t u_uint64_t __attribute__((aligned(1)));
 #define SP_WSTATUS_CLEAR_SIG7        0x800000  ///< SP_STATUS write mask: clear SIG7 bit
 #define SP_WSTATUS_SET_SIG7          0x1000000 ///< SP_STATUS write mask: set SIG7 bit
 
+#define SP_STATUS_HALTED        (1<<0)
+#define SP_STATUS_BROKE         (1<<1)
+#define SP_STATUS_DMA_BUSY      (1<<2)
+#define SP_STATUS_DMA_FULL      (1<<3)
+#define SP_STATUS_IO_FULL       (1<<4)
+#define SP_STATUS_SSTEP         (1<<5)
+#define SP_STATUS_INTR_BREAK    (1<<6)
+#define SP_STATUS_SIG0          (1<<7)
+#define SP_STATUS_SIG1          (1<<8)
+#define SP_STATUS_SIG2          (1<<9)
+#define SP_STATUS_SIG3          (1<<10)
+#define SP_STATUS_SIG4          (1<<11)
+#define SP_STATUS_SIG5          (1<<12)
+#define SP_STATUS_SIG6          (1<<13)
+#define SP_STATUS_SIG7          (1<<14)
 
 #define PI_DRAM_ADDR    ((volatile uint32_t*)0xA4600000)  ///< PI DMA: DRAM address register
 #define PI_CART_ADDR    ((volatile uint32_t*)0xA4600004)  ///< PI DMA: cartridge address register
@@ -305,6 +320,15 @@ static inline void rsp_dma_to_rdram(void* dmem, void *rdram, int size)
     *SP_RSP_ADDR = (uint32_t)dmem;
     *SP_DRAM_ADDR = (uint32_t)rdram;
     *SP_WR_LEN = size-1;
+    while (*SP_DMA_BUSY) {}
+}
+
+static inline void rsp_dma_from_rdram(void* dmem, void *rdram, int size)
+{
+    while (*SP_DMA_FULL) {}
+    *SP_RSP_ADDR = (uint32_t)dmem;
+    *SP_DRAM_ADDR = (uint32_t)rdram;
+    *SP_RD_LEN = size-1;
     while (*SP_DMA_BUSY) {}
 }
 

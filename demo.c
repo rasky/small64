@@ -25,6 +25,7 @@
 #define RDP_BUFFER          ((void*)0xA0220000)
 #define Z_BUFFER            ((void*)0xA03D0000)
 
+#define RPD_DPL_3D          ((uint32_t)0xA0400000)
 
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
@@ -133,13 +134,16 @@ void bb_render(int16_t *buffer)
 #include "scroller.c"
 #include "bkg.c"
 #include "mesh.c"
+#include "ucode.c"
 
 __attribute__((used))
 void demo(void)
-{    
+{
     ai_init();
     vi_init();
     //ym_init();
+    ucode_init();
+
 #if 0
     init_perlin();
     
@@ -160,7 +164,18 @@ void demo(void)
         memset32(Z_BUFFER, (ZBUF_MAX<<16)|ZBUF_MAX, 320*240*2);
         draw_bkg();
         mesh();
-        draw_scroller(vi_buffer_draw);
+        
+        mesh();
+
+        //ucode_set_fb_address((uint32_t)vi_buffer_draw);
+        *DP_START = RPD_DPL_3D;
+        *DP_END = RPD_DPL_3D;
+        ucode_set_rdp_queue(RPD_DPL_3D);
+        ucode_run();
+        
+        dp_wait();
+        
+        //draw_scroller(vi_buffer_draw);
     
         // int16_t *ai_buffer = ai_poll();
         // if (ai_buffer) {
