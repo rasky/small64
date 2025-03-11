@@ -88,11 +88,17 @@
     .align 2
     VERTEX_ADDR: .ds.b 4
     .align 2
-    DPL_ADDR: .ds.b 4
+    RDPQ_CURRENT: .ds.b 4
     .align 3
     MATRIX: .ds.b 24
     .align 4
-    DPL_BUFF: .ds.b 1024
+    RSPQ_DMEM_BUFFER: .ds.b 1024
+    .align 2
+    TRI_COMMAND: .ds.b 4
+    .align 2
+    RDPQ_OTHER_MODES: .ds.b 4
+    .align 1
+    RDPQ_TRI_BUFF_OFFSET: .ds.b 2
     VERT_BUFF: .ds.b 1024
     .align 4
     RSPQ_SCRATCH_MEM: .ds.b 16
@@ -103,6 +109,7 @@
 OVERLAY_CODE_START:
 
 Main:
+  RSPQ_Loop:
   vxor $v00, $v00, $v00 # inline-ASM
   lpv $v31, 0, 0, $zero
   vmudl $v30, $v31, $v31.e7
@@ -111,15 +118,15 @@ Main:
   vxor $v01, $v00, $v31.e6
   vxor $v02, $v00, $v30.e5
   lw $t2, %lo(VERTEX_ADDR + 0)
-  ori $t3, $zero, %lo(DPL_BUFF)
+  ori $t3, $zero, %lo(RSPQ_DMEM_BUFFER)
   addiu $t4, $zero, 32
   addu $t5, $t3, $t4
   mtc0 $t3, COP0_DMA_SPADDR ## Barrier: 0x1
   mtc0 $t2, COP0_DMA_RAMADDR ## Barrier: 0x1
   mtc0 $t4, COP0_DMA_READ ## Barrier: 0x1
-  lw $t6, %lo(DPL_ADDR + 0)
-  ori $t7, $zero, %lo(DPL_BUFF)
-  ori $t8, $zero, %lo(DPL_BUFF)
+  lw $t6, %lo(RDPQ_CURRENT + 0)
+  ori $t7, $zero, %lo(RSPQ_DMEM_BUFFER)
+  ori $t8, $zero, %lo(RSPQ_DMEM_BUFFER)
   ori $at, $zero, %lo(MATRIX)
   ldv $v03, 0, 0, $at
   ldv $v03, 8, 0, $at
@@ -199,6 +206,7 @@ Main:
   LABEL_0006:
   addu $t6, $t6, $t9
   mtc0 $t6, COP0_DP_END
+  RDPQ_Triangle_Cull:
   break # inline-ASM
 
 OVERLAY_CODE_END:
@@ -237,3 +245,4 @@ OVERLAY_CODE_END:
 
 .set at
 .set macro
+#include "./rspq_triangle.inc"
