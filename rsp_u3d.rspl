@@ -1,0 +1,117 @@
+include "rsp.inc"
+
+state 
+{
+  u8 SHIFT_DATA[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
+  u32 VERTEX_ADDR;
+  u32 DPL_ADDR;
+}
+
+temp_state
+{
+  alignas(16)
+  u8 DPL_BUFF[1024];
+}
+
+// DMA from RDRAM into DMEM
+macro dmaInAsync(u32 addrRDRAM, u32 addrDMEM, u32 size)
+{
+  @Barrier("DMA") set_dma_addr_rsp(addrDMEM);
+  @Barrier("DMA") set_dma_addr_rdram(addrRDRAM);
+  @Barrier("DMA") set_dma_read(size);
+}
+
+// DMA from DMEM into RDRAM
+macro dmaOutAsync(u32 addrRDRAM, u32 addrDMEM, u32 size)
+{
+  @Barrier("DMA") set_dma_addr_rsp(addrDMEM);
+  @Barrier("DMA") set_dma_addr_rdram(addrRDRAM);
+  @Barrier("DMA") set_dma_write(size);
+}
+
+macro dmaAwait()
+{
+  loop { 
+    RA = get_dma_busy();
+  } while(RA != 0)
+}
+
+#define RDP_POS_MASK 0b1111'1111'1111
+
+macro encodeRectPos(u32 outA, u32 outB, vec16 pos)
+{
+  outA = pos.y;
+  outA &= RDP_POS_MASK;
+  u32 tmp = pos.x;
+  tmp <<= 12;
+  outA |= tmp;
+
+  outB = pos.Y;
+  outB &= RDP_POS_MASK;
+  tmp = pos.X;
+  tmp <<= 12;
+  outB |= tmp;
+}
+
+macro writePointRect(vec16 p)
+{
+  vec16 posSize = 0;
+  posSize.X = 16;
+  posSize.Y = 16;
+
+  posSize += p;
+
+  u32 rectStart, rectEnd;
+  encodeRectPos(rectStart, rectEnd, posSize);
+
+  //       Offset: |  0  |  1  |  2  |  3  ||  4  |  5  |  6  |  7  |
+  //  "Fill Rect": |0x36 |   X1/Y1 (10.2)  ||  -  |  X0/Y0 (10.2)   |
+  store(rectStart, dplDMEM, 4);
+  @Barrier("cmd") store(rectEnd,   dplDMEM, 0);  
+  @Barrier("cmd") store(CMD_FILL_RECT, dplDMEM, 0);
+  dplDMEM += 8;
+}
+
+/**
+ * RSPL relies on some vector registers setup by 'rsp_queue.inc' in libdragon.
+ * Replicate the setup here for the two shift and zero register values.
+ */
+macro globalSetup()
+{
+  undef VSHIFT; undef VSHIFT8;
+  vec16<$v30> VSHIFT; // make writable
+  vec16<$v31> VSHIFT8;
+
+  asm("vxor $v00, $v00, $v00");
+  VSHIFT8 = load_vec_s8(ZERO);
+  VSHIFT = VSHIFT8 >>> 8;
+}
+
+@NoReturn
+function Main()
+{
+  globalSetup(); 
+  const u8 CMD_SYNC_FULL  = 0x29;
+  const u8 CMD_FILL_RECT  = 0x36;
+
+  u32 dplRDRAM     = load(DPL_ADDR);
+  u16 dplDMEM      = DPL_BUFF;
+  u16 dplDMEMStart = DPL_BUFF;
+
+  vec16 pos = 0x80;
+  writePointRect(pos);
+
+  // Sync full 
+  store(CMD_SYNC_FULL, dplDMEM);
+  dplDMEM += 8; 
+
+  // DMA commands to RDRAM and store the total size for the CPU to fetch later
+  u32 dmaSize = dplDMEM - dplDMEMStart;
+  dmaOutAsync(dplRDRAM, dplDMEMStart, dmaSize);
+  dmaAwait();
+
+  dplRDRAM += dmaSize; 
+  set_rdp_end(dplRDRAM);
+
+  asm("break"); // halts RSP
+}

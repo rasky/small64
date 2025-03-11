@@ -2,13 +2,14 @@ BUILD_DIR=build-debug
 include $(N64_INST)/include/n64.mk
 
 src = demo.c minilib.c main_debug.c
+asm = rsp_u3d.S
 
 N64_CFLAGS += -DDEBUG -Os
 
 all: small64_debug.z64
 
 small64_debug.z64: N64_ROM_TITLE="Small64 (Debug)"
-$(BUILD_DIR)/small64_debug.elf: $(src:%.c=$(BUILD_DIR)/%.o)
+$(BUILD_DIR)/small64_debug.elf: $(src:%.c=$(BUILD_DIR)/%.o) $(asm:%.S=$(BUILD_DIR)/%.o)
 
 clean:
 	rm -rf $(BUILD_DIR) small64_debug.z64

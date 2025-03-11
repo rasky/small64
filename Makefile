@@ -40,7 +40,7 @@ N64_ASFLAGS =  -mabi=32 -mgp32 -mfp32 -msingle-float -G0
 N64_RSPASFLAGS = -march=mips1 -mabi=32 -Wa,--fatal-warnings
 N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 
-SHRINKER ?= ~/Sources/n64/Shrinkler/build/native/Shrinkler
+SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 
 # Objects used for the first compilation step (uncompressed)
 OBJS = build/stage1.o build/minidragon.o build/rdram.o
@@ -66,13 +66,57 @@ build/%.o: %.c
 	$(SED) -i 's/\bj\b/b/g' $@.s
 	$(N64_AS) $(N64_ASFLAGS) --no-warn -o $@ $@.s
 
+BUILD_DIR = build
+SOURCE_DIR = .
+
 build/%.o: %.S
 	@echo "    [AS] $@"
 	@mkdir -p build
-	$(N64_CC) -c $(N64_ASFLAGS) $(N64_ASPPFLAGS) -o $@ $<
+
+	set -e; \
+	FILENAME="$(notdir $(basename $@))"; \
+	if case "$$FILENAME" in "rsp"*) true;; *) false;; esac; then \
+		SYMPREFIX="$(subst .,_,$(subst /,_,$(basename $@)))"; \
+		TEXTSECTION="$(basename $@).text"; \
+		DATASECTION="$(basename $@).data"; \
+		METASECTION="$(basename $@).meta"; \
+		BINARY="$(basename $@).elf"; \
+		echo "    [RSP] $<"; \
+		$(N64_CC) $(RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@ $<; \
+		mv "$@" $$BINARY; \
+		$(N64_OBJCOPY) -O binary -j .text $$BINARY $$TEXTSECTION.bin; \
+		$(N64_OBJCOPY) -O binary -j .data $$BINARY $$DATASECTION.bin; \
+		$(N64_OBJCOPY) -O binary -j .meta $$BINARY $$METASECTION.bin --set-section-flags .meta=alloc,load; \
+		[ -s $$METASECTION.bin ] || printf '\0' > $$METASECTION.bin; \
+		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
+				--redefine-sym _binary_$${SYMPREFIX}_text_bin_start=$${FILENAME}_text_start \
+				--redefine-sym _binary_$${SYMPREFIX}_text_bin_end=$${FILENAME}_text_end \
+				--redefine-sym _binary_$${SYMPREFIX}_text_bin_size=$${FILENAME}_text_size \
+				--set-section-alignment .data=16 \
+				--rename-section .text=.data $$TEXTSECTION.bin $$TEXTSECTION.o; \
+		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
+				--redefine-sym _binary_$${SYMPREFIX}_data_bin_start=$${FILENAME}_data_start \
+				--redefine-sym _binary_$${SYMPREFIX}_data_bin_end=$${FILENAME}_data_end \
+				--redefine-sym _binary_$${SYMPREFIX}_data_bin_size=$${FILENAME}_data_size \
+				--set-section-alignment .data=16 \
+				--rename-section .text=.data $$DATASECTION.bin $$DATASECTION.o; \
+		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
+				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_start=$${FILENAME}_meta_start \
+				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_end=$${FILENAME}_meta_end \
+				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_size=$${FILENAME}_meta_size \
+				--set-section-alignment .data=16 \
+				--rename-section .text=.data $$METASECTION.bin $$METASECTION.o; \
+		$(N64_SIZE) -G $$BINARY; \
+		$(N64_LD) -relocatable $$TEXTSECTION.o $$DATASECTION.o $$METASECTION.o -o $@; \
+		rm $$TEXTSECTION.bin $$DATASECTION.bin $$METASECTION.bin $$TEXTSECTION.o $$DATASECTION.o $$METASECTION.o; \
+	else \
+		$(N64_CC) -c $(N64_ASFLAGS) $(N64_ASPPFLAGS) -o $@ $<; \
+	fi
+
+asm = rsp_u3d.S
 
 # Build initial binary with all stages (uncompressed)
-build/small.elf: small.1.ld $(OBJS)
+build/small.elf: small.1.ld $(OBJS) $(asm:%.S=$(BUILD_DIR)/%.o)
 	@echo "    [LD] $@"
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -o $@ $(filter %.o,$^)
 
