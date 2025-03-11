@@ -138,19 +138,17 @@ decompress_shrinkler:
     addiu $t1, $sp, -16
     addiu $sp, $sp, -ROUND_UP(NUM_CONTEXTS*2, 8)-16
     move $t0, $sp
-    li $t2, 0x80008000
+    li intervalsize, 0x8000
 .Linit_contexts_loop:
-    sw $t2, 0($t0)
-    sw $t2, 4($t0)
+    sh intervalsize, 0($t0)
     blt $t0, $t1, .Linit_contexts_loop
-     addiu $t0, 8
+     addiu $t0, 2
 
     move ra3, $ra
     lwu intervalvalue, 0(inbuf)
     addiu inbuf, 4
     dsll intervalvalue, 31
     li nbits, 1
-    li intervalsize, 0x8000
     li parity, CONTEXT_KIND*2
     b .Lliteral
      li $v0, 1
