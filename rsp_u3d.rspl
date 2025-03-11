@@ -1,20 +1,21 @@
 include "rsp.inc"
 
+// some dummy defines to make it work without libdragon
+#define RSPQ_BeginOverlayHeader ;
+#define RSPQ_EndOverlayHeader ;
+#define RSPQ_BeginSavedState ;
+#define RSPQ_EndSavedState ;
+
 state 
 {
-  u8 SHIFT_DATA[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
+  u8 SHIFT_DATA[8];
   u32 VERTEX_ADDR;
   u32 DPL_ADDR;
+  alignas(8) u16 MATRIX[3][4]; // fractional matrix for scaling + rotation
+  alignas(16) u8 DPL_BUFF[1024];
 
-  // fractional matrix for scaling + rotation
-  alignas(8) u16 MATRIX[3][4];
-}
-
-temp_state
-{
-  alignas(16)
-  u8 DPL_BUFF[1024];
   u8 VERT_BUFF[1024];
+  vec16 RSPQ_SCRATCH_MEM;
 }
 
 // DMA from RDRAM into DMEM
@@ -156,3 +157,5 @@ function Main()
 
   asm("break"); // halts RSP
 }
+
+// include "./rspq_triangle.inc"

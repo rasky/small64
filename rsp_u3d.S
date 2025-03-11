@@ -1,7 +1,9 @@
 ## Auto-generated file, transpiled with RSPL
-#define SCREEN_WIDTH_BYTES 1280
-#define SCREEN_WIDTH_BYTES_DMA 1279
-#define SCREEN_BYTES 307200
+#define RSPQ_BeginOverlayHeader ;
+#define RSPQ_EndOverlayHeader ;
+#define RSPQ_BeginSavedState ;
+#define RSPQ_EndSavedState ;
+#define RDP_POS_MASK 0b1111'1111'1111
 #include <rsp.inc>
 
 .set noreorder
@@ -77,30 +79,28 @@
 #define vce 2
 
 .data
-  STATE_MEM_START:
-  SHIFT_DATA: .byte 128, 64, 32, 16, 8, 4, 2, 1
-  .align 2
-  VERTEX_ADDR: .ds.b 4
-  .align 2
-  DPL_ADDR: .ds.b 4
-  .align 3
-  MATRIX: .ds.b 24
-  STATE_MEM_END:
+  RSPQ_BeginOverlayHeader
+  RSPQ_EndOverlayHeader
 
-.bss
-  TEMP_STATE_MEM_START:
+  RSPQ_BeginSavedState
+    STATE_MEM_START:
+    SHIFT_DATA: .ds.b 8
+    .align 2
+    VERTEX_ADDR: .ds.b 4
+    .align 2
+    DPL_ADDR: .ds.b 4
+    .align 3
+    MATRIX: .ds.b 24
     .align 4
-    RSPQ_DMEM_BUFFER:
     DPL_BUFF: .ds.b 1024
-    .align 4
     VERT_BUFF: .ds.b 1024
-    RSPQ_SCRATCH_MEM:
-  TEMP_STATE_MEM_END:
+    .align 4
+    RSPQ_SCRATCH_MEM: .ds.b 16
+    STATE_MEM_END:
+  RSPQ_EndSavedState
 
 .text
 OVERLAY_CODE_START:
-
-RSPQ_Loop:
 
 Main:
   vxor $v00, $v00, $v00 # inline-ASM
@@ -237,5 +237,3 @@ OVERLAY_CODE_END:
 
 .set at
 .set macro
-
-## #include "rspq_triangle.inc"
