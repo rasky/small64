@@ -15,6 +15,15 @@
 #define RDP_COLOR16(r,g,b,a) (uint32_t)(((r)<<11)|((g)<<6)|((b)<<1)|(a))
 #define RDP_COLOR32(r,g,b,a) (uint32_t)(((r)<<24)|((g)<<16)|((b)<<8)|(a))
 
+#define TILE0       0
+#define TILE1       1
+#define TILE2       2
+#define TILE3       3
+#define TILE4       4
+#define TILE5       5
+#define TILE6       6
+#define TILE7       7
+
 // When compiling C/C++ code, 64-bit immediate operands require explicit
 // casting to a 64-bit type
 #ifdef __ASSEMBLER__
@@ -33,7 +42,7 @@
     ((cast64(0x2C)<<56) | ((cast64((k0))&0x1FF)<<45) | ((cast64((k1))&0x1FF)<<36) | ((cast64((k2))&0x1FF)<<27) | ((cast64((k3))&0x1FF)<<18) | ((cast64((k4))&0x1FF)<<9) | ((cast64((k5))&0x1FF)<<0))
 
 #define RdpSetTile(fmt, size, line, addr, tidx) \
-    ((cast64(0x35)<<56) | (cast64((fmt)) << 53) | (cast64((size)) << 51) | (cast64((line)/8) << 41) | (cast64((addr)/8) << 32) | ((tidx) << 24))
+    ((cast64(0x35)<<56) | (cast64((fmt)) << 53) | (cast64((size)) << 51) | (cast64(((line)+7)/8) << 41) | (cast64((addr)/8) << 32) | ((tidx) << 24))
 
 #define RdpSetTile_Mask(masks, maskt)       (((masks)<<4) | ((maskt)<<14))
 #define RdpSetTile_Scale(scales, scalet)    (((scales)<<0) | ((scalet)<<10))
