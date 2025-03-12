@@ -20,7 +20,6 @@ int stage1(void)
     rdram_init();
 
     *IPL3_TV_TYPE = ipl2_tvType;
-    *IPL3_IQUE = (*MI_VERSION & 0xF0) == 0xB0;
 
     // Clear COP0 cache. At boot, it may contain stale data that might cause
     // invalid cache writes.

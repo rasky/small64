@@ -34,7 +34,7 @@ extern int get_tv_type(void);
 extern bool sys_bbplayer(void);
 #else
 static int get_tv_type(void) { return *IPL3_TV_TYPE; }
-static bool sys_bbplayer(void) { return *IPL3_IQUE; }
+static bool sys_bbplayer(void) { return (*MI_VERSION & 0xF0) == 0xB0; }
 #endif
 
 void *vi_buffer_draw;
