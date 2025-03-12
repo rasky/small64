@@ -24,9 +24,6 @@
 #define VERTEX_BUFFER       ((void*)0xA0210000)
 #define RDP_BUFFER          ((void*)0xA0220000)
 #define Z_BUFFER            ((void*)0xA03D0000)
-
-#define RPD_DPL_3D          ((uint32_t)0xA0400000)
-
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
 
@@ -165,19 +162,21 @@ void demo(void)
         draw_bkg();
         mesh();
         
-        mesh();
+        uint32_t t = C0_COUNT();
 
-        ucode_set_rdp_queue(RPD_DPL_3D);
+        uint32_t vert_buff_end = mesh();
+        ucode_set_rdp_queue((uint32_t)RDP_BUFFER);
         ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f});
+  
+        *DP_START = (uint32_t)RDP_BUFFER;
+        *DP_END = (uint32_t)RDP_BUFFER;
+        
+        ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
+        ucode_run();
+        dp_wait();
 
-        for(uint32_t v = (uint32_t)VERTEX_BUFFER; v<(uint32_t)VERTEX_BUFFER+32*6; v+=32) 
-        {
-          *DP_START = RPD_DPL_3D;
-          *DP_END = RPD_DPL_3D;
-          ucode_set_vertices_address(v);
-          ucode_run();
-          dp_wait();
-        }
+        t = C0_COUNT() - t;
+        debugf("3D: %ldus\n", TICKS_TO_US(t));
     
         //draw_scroller(vi_buffer_draw);
     

@@ -50,6 +50,7 @@ typedef uint64_t u_uint64_t __attribute__((aligned(1)));
 #define C0_STATUS_EXL       0x00000002      ///< Status: within exception 
 #define C0_STATUS_ERL       0x00000004      ///< Status: within error
 
+#define TICKS_TO_US(val) (((val) * 8 / (8 * 93750000/2 / 1000000)))
 
 #ifdef DEBUG
 #include <stdio.h>

@@ -54,7 +54,14 @@ uint64_t dl_bkg[] = {
     [39] = RdpSetTileSizeI(TILE0, 0, 0, 8, 8),
     [40] = RdpTextureRectangle1I(TILE0, 0, 0, 320, 240),
     [41] = RdpTextureRectangle2F(0, 0, 0.25, 0.25),
-    
+
+    // setup for the following 3D draw
+    [42] = RdpSyncPipe(),
+           RdpSetCombine(RDPQ_COMBINER2(
+                (SHADE,0,PRIM,0), (0,0,0,1),
+                (SHADE,0,PRIM,0), (0,0,0,1)
+           )),
+           RdpSetOtherModes(SOM_CYCLE_1 | SOM_Z_COMPARE | SOM_Z_WRITE),
     [64] = RdpSyncFull(),
 };
 

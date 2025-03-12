@@ -8,7 +8,7 @@ extern uint8_t _binary_build_debug_rsp_u3d_text_bin_end[];
 static inline void ucode_init()
 {
   // DMAing too much doesn't matter, but we can skip any size calculation
-  const uint32_t IMEM_SIZE = 1024-1;
+  const uint32_t IMEM_SIZE = 0x1000-1;
 
   // shift values usually set by rspq in libdragon
   uint32_t shift_val = 0x08040201;
@@ -18,11 +18,12 @@ static inline void ucode_init()
 }
 
 /**
- * Set address of vertices to process
+ * Set start and end address of vertices to process
  * @param addr 
  */
-static inline void ucode_set_vertices_address(uint32_t addr) {
+static inline void ucode_set_vertices_address(uint32_t addr, uint32_t addrEnd) {
   ((volatile uint32_t*)SP_DMEM)[2] = addr;
+  ((volatile uint32_t*)SP_DMEM)[3] = addrEnd;
 }
 
 /**
@@ -30,7 +31,7 @@ static inline void ucode_set_vertices_address(uint32_t addr) {
  * @param addr
  */
 static inline void ucode_set_rdp_queue(uint32_t addr) {
-  ((volatile uint32_t*)SP_DMEM)[3] = addr;
+  ((volatile uint32_t*)SP_DMEM)[4] = addr;
 }
 
 static inline void ucode_set_srt(float scale, float rot[3]) {
@@ -43,6 +44,8 @@ static inline void ucode_set_srt(float scale, float rot[3]) {
   float sinR1 = mm_sinf(rot[1]);
   float sinR2 = mm_sinf(rot[2]);
 
+  // @TODO: split this up into an extra scale vector
+  // @TODO: after the above use this for lighting in the ucode
   float mat[3*3] = {
     scale * cosR2 * cosR1, 
     scale * (cosR2 * sinR1 * sinR0 - sinR2 * cosR0), 
@@ -55,13 +58,12 @@ static inline void ucode_set_srt(float scale, float rot[3]) {
     scale * cosR1 * cosR0
   };
 
-
-  SP_DMEM[16/4 + 0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[16/4 + 1] = ((int32_t)(mat[2] * 0x7FFF) << 16);
-  SP_DMEM[16/4 + 2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[16/4 + 3] = ((int32_t)(mat[5] * 0x7FFF) << 16);
-  SP_DMEM[16/4 + 4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[16/4 + 5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
+  SP_DMEM[24/4 + 0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[24/4 + 1] = ((int32_t)(mat[2] * 0x7FFF) << 16);
+  SP_DMEM[24/4 + 2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[24/4 + 3] = ((int32_t)(mat[5] * 0x7FFF) << 16);
+  SP_DMEM[24/4 + 4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
+  SP_DMEM[24/4 + 5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
 }
 
 /**
