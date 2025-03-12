@@ -280,7 +280,6 @@ static inline void wait(int n) {
 static inline void si_write(uint32_t offset, uint32_t value)
 {
     volatile uint32_t *vaddr = (volatile uint32_t *)(0xBFC00000 + offset);
-    while (*SI_STATUS & (SI_STATUS_DMA_BUSY | SI_STATUS_IO_BUSY)) {}
     *vaddr = value;
 }
 
