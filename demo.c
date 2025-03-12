@@ -106,6 +106,18 @@ static void ai_init(void)
     ai_poll_end();
 }
 
+static void dp_send(void *dl, void *dl_end)
+{
+    *DP_START = (uint32_t)dl;
+    *DP_END = (uint32_t)(dl_end);
+}
+
+static void dp_wait(void)
+{
+    while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
+}
+
+
 void bb_render(int16_t *buffer)
 {
     static int t = 0;
@@ -147,7 +159,7 @@ void demo(void)
         vi_wait_vblank();
         memset32(Z_BUFFER, (ZBUF_MAX<<16)|ZBUF_MAX, 320*240*2);
         draw_bkg();
-        // mesh();
+        mesh();
         draw_scroller(vi_buffer_draw);
     
         // int16_t *ai_buffer = ai_poll();

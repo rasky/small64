@@ -61,17 +61,6 @@ uint64_t dl_bkg[] = {
 
 #define dl_bkg_cnt  (sizeof(dl_bkg) / sizeof(uint64_t))
 
-void dp_send(uint64_t *dl, int cnt)
-{
-    *DP_START = (uint32_t)dl;
-    *DP_END = (uint32_t)(dl + cnt);
-}
-
-void dp_wait(void)
-{
-    while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
-}
-
 void draw_bkg(void)
 {
     uint64_t *uncached_dl_bkg = (uint64_t*)((uint32_t)dl_bkg | 0xA0000000);
@@ -88,6 +77,6 @@ void draw_bkg(void)
         count = 0;
     }
 
-    dp_send(dl_bkg, dl_bkg_cnt);
+    dp_send(dl_bkg, dl_bkg+dl_bkg_cnt);
     dp_wait();
 }
