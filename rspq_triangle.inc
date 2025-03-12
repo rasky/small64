@@ -26,8 +26,6 @@ setup_vsll8    vshift8, 0
 #define K32768   vshift8.e0
 #define KM32768  vshift8.e0    // note: this is actually -32768 for most arithmetic operations
 
-#define RDPQ_DYNAMIC_BUFFER_SIZE (1024 * 64)
-
 #########################################################################
 #
 #  RDPQ_Triangle: assemble a RDP triangle command
@@ -289,6 +287,8 @@ RDPQ_Triangle_Send_Async:
     vor vy2, vzero, vall2.e1;                        lsv vall2.e3, RDPQ_TRIANGLE_VTX2_DMEM
     vor vy3, vzero, vall3.e1;                        lsv vall3.e3, RDPQ_TRIANGLE_VTX3_DMEM
 
+#    emux_dump_vpr vall1
+
     # Create vector of ones.                    
     # Do it with vaddc so that we also clear
     # VCO to make sure the first VGE does
@@ -301,12 +301,16 @@ RDPQ_Triangle_Send_Async:
     # and then use vmrg to apply the swap.
     li t6, 0x3F;                                vge vytmp1, vy1, vy2;
     or clip1, clip3;                            vmrg valltmp1, vall1, vall2;        
+
     or clip1, clip2;                            vlt vy1, vy1, vy2;                  
-    cfc2 did_swap_0, COP2_CTRL_VCC;             vmrg vall1, vall1, vall2;
+    cfc2 did_swap_0, COP2_CTRL_VCC;             
+    vmrg vall1, vall1, vall2;
 
     andi t1, clip1, 0x3F;                       vxor vhmlupp, vhmlupp
 
-    bne t1, t6, RDPQ_Triangle_Cull;             vge vytmp2, vy1, vy3;
+
+    # bne t1, t6, RDPQ_Triangle_Cull;             vge vytmp2, vy1, vy3;
+    nop;             vge vytmp2, vy1, vy3;
     andi clip1, 0x3F00;                         vmrg valltmp2, vall1, vall3;
     lbu t6, %lo(RDPQ_OTHER_MODES) + 0;          vlt vy1, vy1, vy3;
     cfc2 did_swap_1, COP2_CTRL_VCC;             vmrg vall1, vall1, vall3;           
@@ -530,7 +534,7 @@ RDPQ_Triangle_Send_Async:
     # Convert X1 and X2 into                    # Check if DMA is busy.
     # 16.16 precision                           # If it is, jump to a busy loop, otherwise
     # vx12 = X1 -- X2 --  -- -- -- --           # get on
-    vsra  vx12_i, vx12_f, 2;                    bnez t1, rdpq_triangle_dma_busy
+    vsra  vx12_i, vx12_f, 2;                    nop; ## bnez t1, rdpq_triangle_dma_busy
                                                  nop
                                                 rdpq_triangle_dma_idle:
     vsll8 vx12_f, vx12_f, 14;                   srl prim_size, 4
@@ -553,6 +557,7 @@ RDPQ_Triangle_Send_Async:
                                                 # get on with the flow, otherwise skip writing
                                                 # to DP_END (we can't do that while SYNC_FULL is ongoing)
     vadd  vedges_i, vx12_i.e0;                  nop; ## bnez t0, 1f
+                                                 
                                                  ssv isl_f, 14,s3
 
     # Write the current RDRAM pointer to
@@ -560,8 +565,9 @@ RDPQ_Triangle_Send_Async:
     # in RAM at this point (because we
     # checked that DMA is idle), the RDP
     # can start running that.                   # Clear the VCC for the next vsub calls
-    mtc0 rdram_cur, COP0_DP_END;                1: vsubc vzero, vzero;
-                                                   
+    ## mtc0 rdram_cur, COP0_DP_END;                
+    1: vsubc vzero, vzero;
+
     ########################################################
     # ATTRIBUTES
     ########################################################
@@ -665,15 +671,7 @@ RDPQ_Triangle_Send_Async:
                                                     slv vdy_f.e6, 0x0C,z_dmem
                                                     addiu prim_size, -1
                                                     sdv vzout1.e0, 0x00,z_dmem
-
-#if RDPQ_TRIANGLE_PROFILE
-    emux_trace_stop
-    mfc0 t0, COP0_DP_CLOCK
-    sub t0, t0, fp
-    emux_log_string "RDPQ_Triangle:  "
-    emux_dump_gpr t0
-#endif
-
+  
     jr ra
     mtc0 prim_size, COP0_DMA_WRITE
 
@@ -766,43 +764,7 @@ RDPQ_Triangle_Send_Async:
     # wait for it to become idle before continuing.
     # Notice that we only handle one background transfer at the time for
     # sanity, so we can't really check for COP0_DMA_FULL here.
-rdpq_triangle_dma_busy:
-    bnez t1, rdpq_triangle_dma_busy
-    mfc0 t1, COP0_DMA_BUSY
-    j rdpq_triangle_dma_idle
-    nop
-
     .endfunc
 
     #undef rdram_cur
     #undef rdram_sentinel
-
-
-    #####################################################################
-    # RDPQ_Triangle_Send_End
-    #
-    # Call this function to correctly terminate a batch of subsequent
-    # calls to RDPQ_Triangle_Send_Async.
-    #
-    # RDPQ_Triangle_Send_Async leaves a RSP DMA running for the last
-    # triangle, to copy it to RDRAM; moreover the RDP is not informed
-    # of it yet. So this function first waits for the DMA to be finished,
-    # and then notifies the RDP that the triangle is ready and can be
-    # drawn.
-    #
-    #####################################################################
-
-    .func RDPQ_Triangle_Send_End
-RDPQ_Triangle_Send_End:
-    mfc0 t0, COP0_DMA_BUSY
-    bnez t0, RDPQ_Triangle_Send_End
-    nop
-    j RSPQCmd_RdpAppendBuffer
-    lw a0, %lo(RDPQ_CURRENT)
-    .endfunc
-
-RSPQCmd_RdpAppendBuffer:
-  ## TODO:
-JrRa:
-  jr ra
-  nop
