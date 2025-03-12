@@ -140,7 +140,7 @@ decompress_shrinkler:
     li intervalsize, 0x8000
 .Linit_contexts_loop:
     sh intervalsize, 0($t1)
-    blt $sp, $t1, .Linit_contexts_loop
+    bne $sp, $t1, .Linit_contexts_loop
      addiu $t1, -2
 
     lwu intervalvalue, 0(inbuf)
