@@ -38,7 +38,7 @@ SECTIONS {
         . = ALIGN(8);
     } > imem
 
-    .text.stage2 : {
+    .text.stage2 0x80000000 + SIZEOF(.text.stage1) : {
         __stage2 = .;
         __stage2_start = .;
         KEEP(build/demo.o(.text.demo))

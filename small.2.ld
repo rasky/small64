@@ -16,12 +16,8 @@ SECTIONS {
         *(.stage0)
     } > dmem
 
-    .text.stage1cmp : {
-        *(.stage1bin)
-    } > dmem
-
-    .text.stage2cmp : {
-        *(.stage2bin)
+    .text.stage12cmp : {
+        *(.stage12bin)
     } > dmem
 
     .text.signature 0xA4000FF8 : {

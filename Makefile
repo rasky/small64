@@ -42,8 +42,12 @@ N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 
 SHRINKER ?= ~/Sources/n64/Shrinkler/build/native/Shrinkler
 
-OBJS = build/stage0.o build/stage1.o build/minidragon.o build/rdram.o
+# Objects used for the first compilation step (uncompressed)
+OBJS = build/stage1.o build/minidragon.o build/rdram.o
 OBJS += build/demo.o build/minilib.o
+
+# Sources used to build the final compressed binary
+FINAL_SRCS = stage0.S stage0_bins.S
 
 N64_ASPPFLAGS += -DNDEBUG -DPROD
 N64_CFLAGS += -DNDEBUG -DPROD
@@ -73,17 +77,20 @@ build/small.elf: small.1.ld $(OBJS)
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -o $@ $(filter %.o,$^)
 
 # Extract and compress stages
-build/%.bin: build/small.elf
+build/stage12.bin: build/small.elf
 	@echo "    [SHRINK] $@"
-	$(N64_OBJCOPY) -O binary -j .text.$(basename $(notdir $@)) $< $@.raw
+	$(N64_OBJCOPY) -O binary -j .text.stage1 $< build/stage1.bin.raw
+	$(N64_OBJCOPY) -O binary -j .text.stage2 $< build/stage2.bin.raw
+	cat build/stage1.bin.raw build/stage2.bin.raw >$@.raw
 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null
 
 # Build final binary with compressed stages
-%.z64: build/small.elf small.2.ld build/stage1.bin build/stage2.bin
+%.z64: build/small.elf small.2.ld build/stage12.bin
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
+		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
 		-o build/small.compressed.elf \
-		stage0_bins.S build/stage0.o
+		$(FINAL_SRCS)
 	$(N64_READELF) --wide --sections build/small.compressed.elf | grep .text
 	$(N64_SIZE) -G build/small.compressed.elf
 	$(N64_OBJCOPY) -O binary build/small.compressed.elf $@

@@ -12,7 +12,13 @@
 
 #include "loader.h"
 
-#define clear_cache_addr    $s0
+# Value of the $t3 register at IPL3 boot
+#define BOOT_T3_VALUE           0xA4000040
+
+#define inbuf           $s1
+#define outbuf          $s2
+#define outbuf_end      $s0
+
 
     .set at
     .set noreorder
@@ -38,21 +44,22 @@
 #endif
 post_stage1_decomp:
     # This code is run after stage1 has been decompressed.
-    # a2 now points to the end of the decompressed stage1 in cache.
+    # outbuf now points to the end of the decompressed stage1 in cache.
     # Now copy the decompressed stage1 into IMEM, just after stage0. We can't
     # run stage1 from cache because icache fetches only from RDRAM, not dcache.
     li $a1, 0x80900000      # src
     li $a0, 0xA4000000      # dst
     addiu $sp, $a0, 0x1000
-    lui $ra, %hi(stage2_decomp)
+    addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
+    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
     b .Lcopy_loop
-    addiu $ra, %lo(stage2_decomp)
+     addiu inbuf, outbuf_end, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
     .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
 .Lcopy_loop:
     lw $t0, 0($a1)
     addiu $a1, 4
     sw $t0, 0x1000($a0)
-    bne $a2, $a1, .Lcopy_loop
+    bne $a0, $sp, .Lcopy_loop   # Always copy 4K. We don't know how big is stage0 exactly
      addiu $a0, 4
     jr $sp                      # Jump to stage1 in IMEM
 
@@ -74,28 +81,29 @@ _start:
     # RDRAM is not initialized yet and we are not going to flush the cache),
     # but we use 0x80002000 as address so that emulators that don't emulate
     # CPU cache stil have RDRAM here.
-     li $a2, 0x80900000             # Destination pointer: CPU cache
-    addiu $sp, $a2, 0x2000         # Decompression also needs the stack: end of CPU cache
-    la $a0, __stage1               # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
+     li outbuf, 0x80900000             # Destination pointer: CPU cache
+    addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
+    addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
+    addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
     b decompress_shrinkler
      li $ra, 0xB0000000            # Post-decompression go to ROM start
 
 stage2_decomp:
     # Stage1 returned the memory size in $v0
     # Prepare for stage2. Stage2 will run from 0x8000'0000
-    # Decompress stage2 from ROM (PI address) because DMEM might have been
-    # corrupted, as it was used as stack during stage1
-    la $a0, __stage2 - 0xA4000000 + 0xB0000000  # calculate PI address of stage2
-    li $a2, 0xA0000000            # Decompression output pointer (uncached address)
+    # NOTE:
+    # Both inbuf and outbuf_end have been already set in the header code (post_stage1_decomp).
+    # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
+    # inbuf = PI address of stage12. We read from PI this time because DMEM might have been corrupted
+    #         by stage1 (it was used as stack)
+    li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
     li $ra, 0x80000000            # Stage2 entrypoint (cached address)
     addu $sp, $v0, $ra            # $sp start at 0x8000'0000+memsize
+    addiu $ra, STAGE1_SIZE
 
     ###################################################
     # Fallthrough to shrinkler decompression
     ###################################################
-
-#define inbuf           $a0
-#define outbuf          $a2
 
 #define intervalsize    $t2   
 #define intervalvalue   $t3
@@ -174,7 +182,8 @@ decompress_shrinkler:
      addiu outbuf, 1
 
 .Lloop:
-    li $v0, 0
+    bge outbuf, outbuf_end, .Lend
+     li $v0, 0
     bal .Llzdecode
      addu ctx, parity, $sp
     bnez $v0, .Lmatch
