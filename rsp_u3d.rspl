@@ -6,26 +6,52 @@ include "rsp.inc"
 #define RSPQ_BeginSavedState ;
 #define RSPQ_EndSavedState ;
 
-
 state 
 {
   u8 SHIFT_DATA[8];
+  
   u32 VERTEX_ADDR;
+  u32 VERTEX_ADDR_END;
   u32 RDPQ_CURRENT;
+  
   alignas(8) u16 MATRIX[3][4]; // fractional matrix for scaling + rotation
-  alignas(16) u8 RSPQ_DMEM_BUFFER[1024];
 
-  // @TODO:
-  u32 TRI_COMMAND;
-  u32 RDPQ_OTHER_MODES;
+  /**
+   * 
+   * Buffer format (RDPQ_Triangle compatible):
+   * @TODO: remove clip pos
+   * 
+   *   Type |     Name  | Offset
+   * -------+-----------+--------
+   * s16[2] | Pos-XY    | 0x00
+   * s16    | Depth     | 0x04
+   * u8     | Clip-Code | 0x06
+   * u8     | Rej. Code | 0x07
+   * u8[4]  | Color     | 0x08
+   * s16[2] | UV        | 0x0C
+   * s16[3] | Clip-Pos  | 0x10  (t3d specific)
+   * s16    | W         | 0x16
+   * f16[3] | Clip-Pos  | 0x18  (t3d specific)
+   * f16    | W         | 0x1E
+   * s16.16 | InvW      | 0x20
+   * -------+-----------+-0x24---
+   */
+  alignas(16) u8 TRI_BUFF[256];
 
-  u16 RDPQ_TRI_BUFF_OFFSET;
+  alignas(16) u8 RSPQ_DMEM_BUFFER[128];
 
-  u8 VERT_BUFF[1024];
-  vec16 RSPQ_SCRATCH_MEM;
+  u16 TRI_CONST1[8];
+  u8 VERT_BUFF[512];
+
+  vec16 RSPQ_SCRATCH_MEM; 
 }
 
-function RDPQ_Triangle_Send_Async();
+// See rspq_triangle.inc
+function RDPQ_Triangle(
+  u32<$a0> triCmd, 
+  u16<$a1> vtx1, u16<$a2> vtx2, u16<$a3> vtx3,
+  u16<$v0> cull, u16<$s3> ptrDMEM
+);
 
 // DMA from RDRAM into DMEM
 macro dmaInAsync(u32 addrRDRAM, u32 addrDMEM, u32 size)
@@ -43,52 +69,6 @@ macro dmaOutAsync(u32 addrRDRAM, u32 addrDMEM, u32 size)
   @Barrier("DMA") set_dma_write(size);
 }
 
-macro dmaAwait()
-{
-  loop { 
-    RA = get_dma_busy();
-  } while(RA != 0)
-}
-
-#define RDP_POS_MASK 0b1111'1111'1111
-
-macro encodeRectPos(u32 outA, u32 outB, vec16 pos)
-{
-  outA = pos.y;
-  outA &= RDP_POS_MASK;
-  u32 tmp = pos.x;
-  tmp <<= 12;
-  outA |= tmp;
-
-  outB = pos.Y;
-  outB &= RDP_POS_MASK;
-  tmp = pos.X;
-  tmp <<= 12;
-  outB |= tmp;
-}
-
-macro writePointRect(vec16 p)
-{
-  vec16 posSize = 0;
-  vec16 posStart = p;
-  
-  posStart.X = posStart.x;
-  posStart.Y = posStart.y;
-  posSize.X = 8;
-  posSize.Y = 8;
-  posSize += posStart;
-
-  u32 rectStart, rectEnd;
-  encodeRectPos(rectStart, rectEnd, posSize);
-
-  //       Offset: |  0  |  1  |  2  |  3  ||  4  |  5  |  6  |  7  |
-  //  "Fill Rect": |0x36 |   X1/Y1 (10.2)  ||  -  |  X0/Y0 (10.2)   |
-  store(rectStart, dplDMEM, 4);
-  @Barrier("cmd") store(rectEnd,   dplDMEM, 0);  
-  @Barrier("cmd") store(CMD_FILL_RECT, dplDMEM, 0);
-  dplDMEM += 8;
-}
-
 /**
  * RSPL relies on some vector registers setup by 'rsp_queue.inc' in libdragon.
  * Replicate the setup here for the two shift and zero register values.
@@ -102,40 +82,60 @@ macro globalSetup()
   asm("vxor $v00, $v00, $v00");
   VSHIFT8 = load_vec_s8(ZERO);
   VSHIFT = VSHIFT8 >>> 8;
+
+  // @TODO:
+  u16 a = 0xFFFF;
+  vec16 b = 0x200;
+  u32 addr = TRI_CONST1;
+  @Barrier("const") store(VZERO, addr);
+  @Barrier("const") store(a, addr);
+  @Barrier("const") store(b.xyzw, addr, 8);
 }
 
 @NoReturn
 function Main()
 {
-  RSPQ_Loop:
+  globalSetup();
 
-  globalSetup(); 
-  const u8 CMD_SYNC_FULL  = 0x29;
-  const u8 CMD_FILL_RECT  = 0x36;
+  // Note: those registers will survive the entire loop and a RDPQ_Triangle_Send_Async call
+  u32<$s6> vertRDRAM = load(VERTEX_ADDR);
+  u32<$s5> vertRDRAMEnd = load(VERTEX_ADDR_END);
+  u32<$s4> dplRDRAM = load(RDPQ_CURRENT);
 
-  vec16 screenOffset = 0x200;
-  vec16 screenScale = 4;
+  // man loop that will load in vertices, converts them to RDP commands
+  // and writes them out for the RDP.
+  MAIN_LOOP:
+  // print(vertRDRAM, vertRDRAMEnd);
 
   // Load vertices
-  u32 vertRDRAM = load(VERTEX_ADDR);
   u32 vertDMEM  = RSPQ_DMEM_BUFFER;
-  u32 vertSize = 32;
-  u32 vertDMEMEnd = vertDMEM + vertSize;
-
+  u32 vertSize = 24;
+ 
   dmaInAsync(vertRDRAM, vertDMEM, vertSize);
+  vertRDRAM += vertSize;
 
-  u32 dplRDRAM     = load(RDPQ_CURRENT);
-  u16 dplDMEM      = RSPQ_DMEM_BUFFER;
-  u16 dplDMEMStart = RSPQ_DMEM_BUFFER;
+  u32 vertDMEMEnd = vertDMEM + vertSize;
+  vec16 screenOffset = 0x200;
+  vec16 screenScale = 4;
+ 
+  u16<$s3> dplDMEM = RSPQ_DMEM_BUFFER;
+  
+  vec16 mat0 = load(MATRIX, 0x00).xyzw;
+  vec16 mat1 = load(MATRIX, 0x08).xyzw;
+  vec16 mat2 = load(MATRIX, 0x10).xyzw;
 
-  vec16 mat0 = load(MATRIX, 0x00).xyzwxyzw;
-  vec16 mat1 = load(MATRIX, 0x08).xyzwxyzw;
-  vec16 mat2 = load(MATRIX, 0x10).xyzwxyzw;
+  u16<$a1> vtx1 = TRI_BUFF;
+  u16<$a2> vtx2 = vtx1 + 64;
+  u16<$a3> vtx3;
 
-  dmaAwait();
+  loop { 
+    RA = get_dma_busy();
+    vtx3 = vtx2 + 64; // fill delay slot
+  } while(RA != 0)
 
   loop {
     vec16 pos = load(vertDMEM);
+    vec16 col = pos;
     //print(pos);
 
     // transform position, this is only rotation and scaling.
@@ -144,32 +144,53 @@ function Main()
     VTEMP = mat1:sfract +* pos.yyyyYYYY;
     pos   = mat2:sfract +* pos.zzzzZZZZ;
 
-    pos *= screenScale;
+    store(pos.z, vtx1, 4); 
+
+    pos = pos * screenScale;
     pos += screenOffset;
     
-    writePointRect(pos);
-    pos.xyzw = pos.XYZW;
-    writePointRect(pos);
+    store(pos.xy, vtx1, 0); 
+    store_vec_u8(col, vtx1, 8);
+    vtx1 += 64;
 
-    vertDMEM += 16;
+    vertDMEM += 8; 
   } while(vertDMEM != vertDMEMEnd)
 
-  // Sync full 
-  store(CMD_SYNC_FULL, dplDMEM);
-  dplDMEM += 8; 
+  vtx1 = TRI_BUFF;
+  
+  u32<$a0> triCmd = 0xCF00;
+  u16<$v0> cull = 1; 
+  //0xCF00
+  RDPQ_Triangle(triCmd, vtx1, vtx2, vtx3, cull, dplDMEM);
+  RDPQ_Triangle_Skip:
+  
+  u16 dplDMEMStart = RSPQ_DMEM_BUFFER;
 
-  // DMA commands to RDRAM and store the total size for the CPU to fetch later
-  u32 dmaSize = dplDMEM - dplDMEMStart;
-  dmaOutAsync(dplRDRAM, dplDMEMStart, dmaSize);
-  dmaAwait();
+  if(vertRDRAM == vertRDRAMEnd) 
+  {
+    const u8 CMD_SYNC_FULL = 0x29;    
+    store(CMD_SYNC_FULL, dplDMEM);
+    dplDMEM += 8;
+  }
 
-  dplRDRAM += dmaSize; 
+  u16 dmaSize = dplDMEM - dplDMEMStart; 
+  if(dplDMEM != dplDMEMStart) 
+  {
+    dmaOutAsync(dplRDRAM, dplDMEMStart, dmaSize);
+    dplRDRAM += dmaSize; 
+     
+    loop { 
+      RA = get_dma_busy();
+      // @TODO: fill delay slot here
+    } while(RA != 0)
+  }
+  
   set_rdp_end(dplRDRAM);
-
-  // RDPQ_Triangle_Send_Async();
-  RDPQ_Triangle_Cull:
+  if(vertRDRAM != vertRDRAMEnd) {
+    goto MAIN_LOOP;
+  }
 
   asm("break"); // halts RSP
-}
+} 
 
 include "./rspq_triangle.inc"

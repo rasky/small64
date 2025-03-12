@@ -3,7 +3,6 @@
 #define RSPQ_EndOverlayHeader ;
 #define RSPQ_BeginSavedState ;
 #define RSPQ_EndSavedState ;
-#define RDP_POS_MASK 0b1111'1111'1111
 #include <rsp.inc>
 
 .set noreorder
@@ -88,18 +87,18 @@
     .align 2
     VERTEX_ADDR: .ds.b 4
     .align 2
+    VERTEX_ADDR_END: .ds.b 4
+    .align 2
     RDPQ_CURRENT: .ds.b 4
     .align 3
     MATRIX: .ds.b 24
     .align 4
-    RSPQ_DMEM_BUFFER: .ds.b 1024
-    .align 2
-    TRI_COMMAND: .ds.b 4
-    .align 2
-    RDPQ_OTHER_MODES: .ds.b 4
+    TRI_BUFF: .ds.b 256
+    .align 4
+    RSPQ_DMEM_BUFFER: .ds.b 128
     .align 1
-    RDPQ_TRI_BUFF_OFFSET: .ds.b 2
-    VERT_BUFF: .ds.b 1024
+    TRI_CONST1: .ds.b 16
+    VERT_BUFF: .ds.b 512
     .align 4
     RSPQ_SCRATCH_MEM: .ds.b 16
     STATE_MEM_END:
@@ -109,104 +108,78 @@
 OVERLAY_CODE_START:
 
 Main:
-  RSPQ_Loop:
   vxor $v00, $v00, $v00 # inline-ASM
   lpv $v31, 0, 0, $zero
   vmudl $v30, $v31, $v31.e7
-  addiu $t0, $zero, 41
-  addiu $t1, $zero, 54
+  ori $t0, $zero, 0xFFFF
+  vxor $v01, $v00, $v31.e6
+  ori $t1, $zero, %lo(TRI_CONST1)
+  sqv $v00, 0, 0, $t1 ## Barrier: 0x1
+  sh $t0, ($t1) ## Barrier: 0x1
+  sdv $v01, 0, 8, $t1 ## Barrier: 0x1
+  lw $s6, %lo(VERTEX_ADDR + 0)
+  lw $s5, %lo(VERTEX_ADDR_END + 0)
+  lw $s4, %lo(RDPQ_CURRENT + 0)
+  MAIN_LOOP:
+  ori $t0, $zero, %lo(RSPQ_DMEM_BUFFER)
+  addiu $t1, $zero, 24
+  mtc0 $t0, COP0_DMA_SPADDR ## Barrier: 0x2
+  mtc0 $s6, COP0_DMA_RAMADDR ## Barrier: 0x2
+  mtc0 $t1, COP0_DMA_READ ## Barrier: 0x2
+  addu $s6, $s6, $t1
+  addu $t2, $t0, $t1
   vxor $v01, $v00, $v31.e6
   vxor $v02, $v00, $v30.e5
-  lw $t2, %lo(VERTEX_ADDR + 0)
-  ori $t3, $zero, %lo(RSPQ_DMEM_BUFFER)
-  addiu $t4, $zero, 32
-  addu $t5, $t3, $t4
-  mtc0 $t3, COP0_DMA_SPADDR ## Barrier: 0x1
-  mtc0 $t2, COP0_DMA_RAMADDR ## Barrier: 0x1
-  mtc0 $t4, COP0_DMA_READ ## Barrier: 0x1
-  lw $t6, %lo(RDPQ_CURRENT + 0)
-  ori $t7, $zero, %lo(RSPQ_DMEM_BUFFER)
-  ori $t8, $zero, %lo(RSPQ_DMEM_BUFFER)
+  ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
   ori $at, $zero, %lo(MATRIX)
   ldv $v03, 0, 0, $at
-  ldv $v03, 8, 0, $at
   ldv $v04, 0, 8, $at
-  ldv $v04, 8, 8, $at
   ldv $v05, 0, 16, $at
-  ldv $v05, 8, 16, $at
+  ori $a1, $zero, %lo(TRI_BUFF)
+  addiu $a2, $a1, 64
   LABEL_0001:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0001
-  nop
+  addiu $a3, $a2, 64
   LABEL_0003:
-  lqv $v06, 0, 0, $t3
+  lqv $v06, 0, 0, $t0
+  vor $v07, $v00, $v06
   vmulf $v29, $v03, $v06.h0
   vmacf $v29, $v04, $v06.h1
   vmacf $v06, $v05, $v06.h2
+  ssv $v06, 4, 4, $a1
   vmudn $v06, $v06, $v02.v
   vaddc $v06, $v06, $v01.v
-  vxor $v07, $v00, $v00.e0
-  vor $v08, $v00, $v06
-  vmov $v08.e4, $v08.e0
-  vmov $v08.e5, $v08.e1
-  vmov $v07.e4, $v30.e4
-  vmov $v07.e5, $v30.e4
-  vaddc $v07, $v07, $v08.v
-  mfc2 $t9, $v07.e1
-  andi $t9, $t9, 4095
-  mfc2 $k1, $v07.e0
-  sll $k1, $k1, 12
-  or $t9, $t9, $k1
-  mfc2 $k0, $v07.e5
-  andi $k0, $k0, 4095
-  mfc2 $k1, $v07.e4
-  sll $k1, $k1, 12
-  or $k0, $k0, $k1
-  sw $t9, 4($t7)
-  sw $k0, 0($t7) ## Barrier: 0x2
-  sb $t1, 0($t7) ## Barrier: 0x2
-  addiu $t7, $t7, 8
-  ori $at, $zero, %lo(RSPQ_SCRATCH_MEM) ## Barrier: 0x4
-  sdv $v06, 8, 0, $at ## Barrier: 0x4
-  ldv $v06, 0, 0, $at ## Barrier: 0x4
-  vxor $v07, $v00, $v00.e0
-  vor $v08, $v00, $v06
-  vmov $v08.e4, $v08.e0
-  vmov $v08.e5, $v08.e1
-  vmov $v07.e4, $v30.e4
-  vmov $v07.e5, $v30.e4
-  vaddc $v07, $v07, $v08.v
-  mfc2 $t9, $v07.e1
-  andi $t9, $t9, 4095
-  mfc2 $k1, $v07.e0
-  sll $k1, $k1, 12
-  or $t9, $t9, $k1
-  mfc2 $k0, $v07.e5
-  andi $k0, $k0, 4095
-  mfc2 $k1, $v07.e4
-  sll $k1, $k1, 12
-  or $k0, $k0, $k1
-  sw $t9, 4($t7)
-  sw $k0, 0($t7) ## Barrier: 0x2
-  sb $t1, 0($t7) ## Barrier: 0x2
-  addiu $t3, $t3, 16
-  bne $t3, $t5, LABEL_0003
-  addiu $t7, $t7, 8
+  slv $v06, 0, 0, $a1
+  suv $v07, 0, 8, $a1
+  addiu $t0, $t0, 8
+  bne $t0, $t2, LABEL_0003
+  addiu $a1, $a1, 64
   LABEL_0004:
-  sb $t0, ($t7)
-  addiu $t7, $t7, 8
-  subu $t9, $t7, $t8
-  mtc0 $t8, COP0_DMA_SPADDR ## Barrier: 0x1
-  mtc0 $t6, COP0_DMA_RAMADDR ## Barrier: 0x1
-  mtc0 $t9, COP0_DMA_WRITE ## Barrier: 0x1
+  ori $a0, $zero, 0xCF00
+  addiu $v0, $zero, 1
+  jal RDPQ_Triangle ## Args: $a0, $a1, $a2, $a3, $v0, $s3
+  ori $a1, $zero, %lo(TRI_BUFF)
+  RDPQ_Triangle_Skip:
+  bne $s6, $s5, LABEL_0005
+  ori $t3, $zero, %lo(RSPQ_DMEM_BUFFER)
+  addiu $t4, $zero, 41
+  sb $t4, ($s3)
+  addiu $s3, $s3, 8
   LABEL_0005:
+  beq $s3, $t3, LABEL_0006
+  subu $t4, $s3, $t3
+  mtc0 $t3, COP0_DMA_SPADDR ## Barrier: 0x2
+  mtc0 $s4, COP0_DMA_RAMADDR ## Barrier: 0x2
+  mtc0 $t4, COP0_DMA_WRITE ## Barrier: 0x2
+  addu $s4, $s4, $t4
+  LABEL_0007:
   mfc0 $ra, COP0_DMA_BUSY
-  bne $ra, $zero, LABEL_0005
+  bne $ra, $zero, LABEL_0007
   nop
   LABEL_0006:
-  addu $t6, $t6, $t9
-  mtc0 $t6, COP0_DP_END
-  RDPQ_Triangle_Cull:
+  bne $s6, $s5, MAIN_LOOP
+  mtc0 $s4, COP0_DP_END
   break # inline-ASM
 
 OVERLAY_CODE_END:
