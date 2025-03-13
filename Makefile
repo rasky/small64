@@ -86,28 +86,8 @@ build/%.o: %.S
 		mv "$@" $$BINARY; \
 		$(N64_OBJCOPY) -O binary -j .text $$BINARY $$TEXTSECTION.bin; \
 		$(N64_OBJCOPY) -O binary -j .data $$BINARY $$DATASECTION.bin; \
-		$(N64_OBJCOPY) -O binary -j .meta $$BINARY $$METASECTION.bin --set-section-flags .meta=alloc,load; \
-		[ -s $$METASECTION.bin ] || printf '\0' > $$METASECTION.bin; \
-		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
-				--redefine-sym _binary_$${SYMPREFIX}_text_bin_start=$${FILENAME}_text_start \
-				--redefine-sym _binary_$${SYMPREFIX}_text_bin_end=$${FILENAME}_text_end \
-				--redefine-sym _binary_$${SYMPREFIX}_text_bin_size=$${FILENAME}_text_size \
-				--set-section-alignment .data=16 \
-				--rename-section .text=.data $$TEXTSECTION.bin $$TEXTSECTION.o; \
-		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
-				--redefine-sym _binary_$${SYMPREFIX}_data_bin_start=$${FILENAME}_data_start \
-				--redefine-sym _binary_$${SYMPREFIX}_data_bin_end=$${FILENAME}_data_end \
-				--redefine-sym _binary_$${SYMPREFIX}_data_bin_size=$${FILENAME}_data_size \
-				--set-section-alignment .data=16 \
-				--rename-section .text=.data $$DATASECTION.bin $$DATASECTION.o; \
-		$(N64_OBJCOPY) -I binary -O elf32-bigmips -B mips4300 \
-				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_start=$${FILENAME}_meta_start \
-				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_end=$${FILENAME}_meta_end \
-				--redefine-sym _binary_$${SYMPREFIX}_meta_bin_size=$${FILENAME}_meta_size \
-				--set-section-alignment .data=16 \
-				--rename-section .text=.data $$METASECTION.bin $$METASECTION.o; \
 		$(N64_SIZE) -G $$BINARY; \
-		$(N64_LD) -relocatable $$TEXTSECTION.o $$DATASECTION.o $$METASECTION.o -o $@; \
+		xxd -i 
 		rm $$TEXTSECTION.bin $$DATASECTION.bin $$METASECTION.bin $$TEXTSECTION.o $$DATASECTION.o $$METASECTION.o; \
 	else \
 		$(N64_CC) -c $(N64_ASFLAGS) $(N64_ASPPFLAGS) -o $@ $<; \
@@ -115,8 +95,20 @@ build/%.o: %.S
 
 asm = rsp_u3d.S
 
+# RSP ucode
+build/demo.o: build/rsp.inc
+build/rsp.inc: rsp_u3d.S
+	@echo "    [RSP] $<"
+	$(N64_CC) $(N64_RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@.elf $<
+	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
+	$(N64_OBJCOPY) -O binary -j .data $@.elf $@.data.bin
+	$(N64_SIZE) -G $@.elf
+	xxd -n rsp_code -i $@.text.bin >$@
+	xxd -n rsp_data -i $@.data.bin >>$@
+	rm $@.elf $@.text.bin $@.data.bin
+
 # Build initial binary with all stages (uncompressed)
-build/small.elf: small.1.ld $(OBJS) $(asm:%.S=$(BUILD_DIR)/%.o)
+build/small.elf: small.1.ld $(OBJS) build/rsp.inc
 	@echo "    [LD] $@"
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -o $@ $(filter %.o,$^)
 
