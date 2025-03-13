@@ -1,4 +1,4 @@
-#include "build/rsp.inc"
+#include "build/rsp_u3d.inc"
 
 /**
  * Loads the ucode onto the RSP making it ready to be run.
