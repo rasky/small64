@@ -76,18 +76,22 @@ uint32_t mesh(void)
                 vtx[0].pos[0] = (int16_t)(rcv0 * mm_cosf(u0));
                 vtx[0].pos[1] = (int16_t)(rcv0 * mm_sinf(u0));
                 vtx[0].pos[2] = (int16_t)(r * mm_sinf(v0));
+                // normal: (cos(u0)*cos(v0), sin(u0)*cos(v0), sin(v0))
               
                 vtx[1].pos[0] = (int16_t)(rcv0 * mm_cosf(u1));
                 vtx[1].pos[1] = (int16_t)(rcv0 * mm_sinf(u1));
                 vtx[1].pos[2] = (int16_t)(r * mm_sinf(v0));
+                // normal: (cos(u1)*cos(v0), sin(u1)*cos(v0), sin(v0))
 
                 vtx[2].pos[0] = (int16_t)(rcv1 * mm_cosf(u1));
                 vtx[2].pos[1] = (int16_t)(rcv1 * mm_sinf(u1));
                 vtx[2].pos[2] = (int16_t)(r * mm_sinf(v1));
+                // normal: (cos(u1)*cos(v1), sin(u1)*cos(v1), sin(v1))
 
                 vtx[4].pos[0] = (int16_t)(rcv1 * mm_cosf(u0));
                 vtx[4].pos[1] = (int16_t)(rcv1 * mm_sinf(u0));
                 vtx[4].pos[2] = (int16_t)(r * mm_sinf(v1));
+                // normal: (cos(u0)*cos(v1), sin(u0)*cos(v1), sin(v1))
 
                 vtx[3] = vtx[2];
                 vtx[5] = vtx[0];
