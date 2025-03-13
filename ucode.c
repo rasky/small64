@@ -1,4 +1,8 @@
-#include "build/rsp_u3d.inc"
+#ifdef DEBUG
+  #include "build-debug/rsp_u3d.inc"
+#else
+  #include "build/rsp_u3d.inc"
+#endif
 
 /**
  * Loads the ucode onto the RSP making it ready to be run.
@@ -33,8 +37,8 @@ static inline void ucode_set_rdp_queue(uint32_t addr) {
   ((volatile uint32_t*)SP_DMEM)[4] = addr;
 }
 
-static inline void ucode_set_srt(float scale, float rot[3]) {
-
+static inline void ucode_set_srt(float scale, float rot[3]) 
+{
   float cosR0 = mm_cosf(rot[0]);
   float cosR2 = mm_cosf(rot[2]);
   float cosR1 = mm_cosf(rot[1]);
@@ -46,17 +50,18 @@ static inline void ucode_set_srt(float scale, float rot[3]) {
   // @TODO: split this up into an extra scale vector
   // @TODO: after the above use this for lighting in the ucode
   float mat[3*3] = {
-    scale * cosR2 * cosR1, 
-    scale * (cosR2 * sinR1 * sinR0 - sinR2 * cosR0), 
-    scale * (cosR2 * sinR1 * cosR0 + sinR2 * sinR0),
-    scale * sinR2 * cosR1, 
-    scale * (sinR2 * sinR1 * sinR0 + cosR2 * cosR0), 
-    scale * (sinR2 * sinR1 * cosR0 - cosR2 * sinR0),
-    -scale * sinR1, 
-    scale * cosR1 * sinR0, 
-    scale * cosR1 * cosR0
+    cosR2 * cosR1, 
+    (cosR2 * sinR1 * sinR0 - sinR2 * cosR0), 
+    (cosR2 * sinR1 * cosR0 + sinR2 * sinR0),
+    sinR2 * cosR1, 
+    (sinR2 * sinR1 * sinR0 + cosR2 * cosR0), 
+    (sinR2 * sinR1 * cosR0 - cosR2 * sinR0),
+    -sinR1, 
+    cosR1 * sinR0, 
+    cosR1 * cosR0
   };
 
+  // @TODO: set scale 
   SP_DMEM[24/4 + 0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
   SP_DMEM[24/4 + 1] = ((int32_t)(mat[2] * 0x7FFF) << 16);
   SP_DMEM[24/4 + 2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);

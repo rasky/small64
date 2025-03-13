@@ -110,54 +110,55 @@ OVERLAY_CODE_START:
 Main:
   vxor $v00, $v00, $v00 # inline-ASM
   lpv $v31, 0, 0, $zero
-  vmudl $v30, $v31, $v31.e7
-  ori $t0, $zero, 0xFFFF
-  vxor $v01, $v00, $v31.e6
   ori $t1, $zero, %lo(TRI_CONST1)
-  sqv $v00, 0, 0, $t1 ## Barrier: 0x1
-  sh $t0, ($t1) ## Barrier: 0x1
-  sdv $v01, 0, 8, $t1 ## Barrier: 0x1
-  lw $s6, %lo(VERTEX_ADDR + 0)
   lw $s5, %lo(VERTEX_ADDR_END + 0)
+  ori $t0, $zero, 0xFFFF
+  vmudl $v30, $v31, $v31.e7
+  sqv $v00, 0, 0, $t1 ## Barrier: 0x1
+  vxor $v01, $v00, $v31.e6
   lw $s4, %lo(RDPQ_CURRENT + 0)
+  sh $t0, ($t1) ## Barrier: 0x1
+  lw $s6, %lo(VERTEX_ADDR + 0)
+  sdv $v01, 0, 8, $t1 ## Barrier: 0x1
   MAIN_LOOP:
+  ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
   ori $t0, $zero, %lo(RSPQ_DMEM_BUFFER)
   addiu $t1, $zero, 24
+  addu $t2, $t0, $t1
   mtc0 $t0, COP0_DMA_SPADDR ## Barrier: 0x2
   mtc0 $s6, COP0_DMA_RAMADDR ## Barrier: 0x2
-  mtc0 $t1, COP0_DMA_READ ## Barrier: 0x2
   addu $s6, $s6, $t1
-  addu $t2, $t0, $t1
-  vxor $v01, $v00, $v31.e6
-  vxor $v02, $v00, $v30.e5
-  ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
-  ori $at, $zero, %lo(MATRIX)
-  ldv $v03, 0, 0, $at
-  ldv $v04, 0, 8, $at
-  ldv $v05, 0, 16, $at
+  ldv $v03, 0, 32, $zero
+  mtc0 $t1, COP0_DMA_READ ## Barrier: 0x2
+  ldv $v04, 0, 40, $zero
   ori $a1, $zero, %lo(TRI_BUFF)
+  vxor $v01, $v00, $v31.e6
+  ldv $v03, 8, 32, $zero
+  ldv $v02, 0, 24, $zero
+  ldv $v04, 8, 40, $zero
   addiu $a2, $a1, 64
+  ldv $v02, 8, 24, $zero
   LABEL_0001:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0001
   addiu $a3, $a2, 64
   LABEL_0003:
-  lqv $v06, 0, 0, $t0
-  vor $v07, $v00, $v06
-  vmulf $v29, $v03, $v06.h0
-  vmacf $v29, $v04, $v06.h1
-  vmacf $v06, $v05, $v06.h2
-  ssv $v06, 4, 4, $a1
-  vmudn $v06, $v06, $v02.v
-  vaddc $v06, $v06, $v01.v
-  slv $v06, 0, 0, $a1
-  suv $v07, 0, 8, $a1
+  lpv $v05, 0, 0, $t0
+  vmulf $v29, $v02, $v05.h0
+  vmacf $v29, $v03, $v05.h1
   addiu $t0, $t0, 8
+  vmacf $v05, $v04, $v05.h2
+  vor $v06, $v00, $v05.e6
+  vmulf $v06, $v06, $v06.v
+  vmudm $v05, $v05, $v31.e5
+  vaddc $v05, $v05, $v01.v
+  sdv $v05, 0, 0, $a1 ## Barrier: 0x4
+  suv $v06, 4, 8, $a1 ## Barrier: 0x4
   bne $t0, $t2, LABEL_0003
   addiu $a1, $a1, 64
   LABEL_0004:
-  ori $a0, $zero, 0xCF00
   addiu $v0, $zero, 1
+  ori $a0, $zero, 0xCF00
   jal RDPQ_Triangle ## Args: $a0, $a1, $a2, $a3, $v0, $s3
   ori $a1, $zero, %lo(TRI_BUFF)
   RDPQ_Triangle_Skip:
@@ -171,8 +172,8 @@ Main:
   subu $t4, $s3, $t3
   mtc0 $t3, COP0_DMA_SPADDR ## Barrier: 0x2
   mtc0 $s4, COP0_DMA_RAMADDR ## Barrier: 0x2
-  mtc0 $t4, COP0_DMA_WRITE ## Barrier: 0x2
   addu $s4, $s4, $t4
+  mtc0 $t4, COP0_DMA_WRITE ## Barrier: 0x2
   LABEL_0007:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0007

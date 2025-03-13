@@ -112,17 +112,16 @@ function Main()
   u32 vertSize = 24;
  
   dmaInAsync(vertRDRAM, vertDMEM, vertSize);
-  vertRDRAM += vertSize;
+  vertRDRAM += vertSize; 
 
   u32 vertDMEMEnd = vertDMEM + vertSize;
   vec16 screenOffset = 0x200;
-  vec16 screenScale = 4;
  
   u16<$s3> dplDMEM = RSPQ_DMEM_BUFFER;
   
-  vec16 mat0 = load(MATRIX, 0x00).xyzw;
-  vec16 mat1 = load(MATRIX, 0x08).xyzw;
-  vec16 mat2 = load(MATRIX, 0x10).xyzw;
+  vec16 mat0 = load(ZERO, 24).xyzwxyzw;
+  vec16 mat1 = load(ZERO, 32).xyzwxyzw;   
+  vec16 mat2 = load(ZERO, 40).xyzwxyzw; 
 
   u16<$a1> vtx1 = TRI_BUFF;
   u16<$a2> vtx2 = vtx1 + 64;
@@ -134,25 +133,23 @@ function Main()
   } while(RA != 0)
 
   loop {
-    vec16 pos = load(vertDMEM);
-    vec16 col = pos;
-    //print(pos);
-
+    vec16 pos = load_vec_s8(vertDMEM);
+    
     // transform position, this is only rotation and scaling.
     // since the matrix is a 16bit fractional, we can also only scale down here
-    VTEMP = mat0:sfract  * pos.xxxxXXXX;
-    VTEMP = mat1:sfract +* pos.yyyyYYYY;
+    VTEMP = mat0:sfract  * pos.xxxxXXXX; 
+    VTEMP = mat1:sfract +* pos.yyyyYYYY; 
     pos   = mat2:sfract +* pos.zzzzZZZZ;
 
-    store(pos.z, vtx1, 4); 
+    vec16 col = pos.Z;
+    col:sfract *= col:sfract;
 
-    pos = pos * screenScale;
+    pos >>= 6;
     pos += screenOffset;
     
-    store(pos.xy, vtx1, 0); 
-    store_vec_u8(col, vtx1, 8);
+    @Barrier("attr") store(pos.xyzw, vtx1, 0); 
+    @Barrier("attr") store_vec_u8(col.X, vtx1, 8);
     vtx1 += 64;
-
     vertDMEM += 8; 
   } while(vertDMEM != vertDMEMEnd)
 
@@ -160,7 +157,7 @@ function Main()
   
   u32<$a0> triCmd = 0xCF00;
   u16<$v0> cull = 1; 
-  //0xCF00
+  
   RDPQ_Triangle(triCmd, vtx1, vtx2, vtx3, cull, dplDMEM);
   RDPQ_Triangle_Skip:
   

@@ -3,8 +3,10 @@
 #include "rdp_commands.h"
 
 typedef struct {
-  uint16_t pos[3];
-  uint16_t _padding;
+  int8_t pos[3];
+  int8_t _padding0;
+  int8_t normal[3];
+  int8_t _padding1;
 } u3d_vertex;
 
 static float xangle = MM_PI/8;
@@ -57,7 +59,7 @@ uint32_t mesh(void)
 #if 1
     static u3d_vertex *vtx = VERTEX_BUFFER;
     if (vtx == VERTEX_BUFFER) {
-        debugf("Recreate\n");
+        
         // Loop over the torus patches.
         for (int i = 0; i < numMajor; i++) {
             // Calculate the current and next angle for the major circle.
@@ -73,29 +75,40 @@ uint32_t mesh(void)
                 float rcv0 = R + r * mm_cosf(v0);
                 float rcv1 = R + r * mm_cosf(v1);
 
-                vtx[0].pos[0] = (int16_t)(rcv0 * mm_cosf(u0));
-                vtx[0].pos[1] = (int16_t)(rcv0 * mm_sinf(u0));
-                vtx[0].pos[2] = (int16_t)(r * mm_sinf(v0));
-                // normal: (cos(u0)*cos(v0), sin(u0)*cos(v0), sin(v0))
-              
-                vtx[1].pos[0] = (int16_t)(rcv0 * mm_cosf(u1));
-                vtx[1].pos[1] = (int16_t)(rcv0 * mm_sinf(u1));
-                vtx[1].pos[2] = (int16_t)(r * mm_sinf(v0));
-                // normal: (cos(u1)*cos(v0), sin(u1)*cos(v0), sin(v0))
+                vtx[0].pos[0] = (int8_t)(rcv0 * mm_cosf(u0));
+                vtx[0].pos[1] = (int8_t)(rcv0 * mm_sinf(u0));
+                vtx[0].pos[2] = (int8_t)(r * mm_sinf(v0));
+                            
+                vtx[1].pos[0] = (int8_t)(rcv0 * mm_cosf(u1));
+                vtx[1].pos[1] = (int8_t)(rcv0 * mm_sinf(u1));
+                vtx[1].pos[2] = (int8_t)(r * mm_sinf(v0));
+ 
+                vtx[2].pos[0] = (int8_t)(rcv1 * mm_cosf(u1));
+                vtx[2].pos[1] = (int8_t)(rcv1 * mm_sinf(u1));
+                vtx[2].pos[2] = (int8_t)(r * mm_sinf(v1));
 
-                vtx[2].pos[0] = (int16_t)(rcv1 * mm_cosf(u1));
-                vtx[2].pos[1] = (int16_t)(rcv1 * mm_sinf(u1));
-                vtx[2].pos[2] = (int16_t)(r * mm_sinf(v1));
-                // normal: (cos(u1)*cos(v1), sin(u1)*cos(v1), sin(v1))
+                vtx[3].pos[0] = (int8_t)(rcv1 * mm_cosf(u0));
+                vtx[3].pos[1] = (int8_t)(rcv1 * mm_sinf(u0));
+                vtx[3].pos[2] = (int8_t)(r * mm_sinf(v1));
+                
+                vtx[0].normal[0] = (mm_cosf(u0) * mm_cosf(v0)) * 127;
+                vtx[0].normal[1] = (mm_sinf(u0) * mm_cosf(v0)) * 127;
+                vtx[0].normal[2] = (mm_sinf(v0)) * 127;
 
-                vtx[4].pos[0] = (int16_t)(rcv1 * mm_cosf(u0));
-                vtx[4].pos[1] = (int16_t)(rcv1 * mm_sinf(u0));
-                vtx[4].pos[2] = (int16_t)(r * mm_sinf(v1));
-                // normal: (cos(u0)*cos(v1), sin(u0)*cos(v1), sin(v1))
+                vtx[1].normal[0] = (mm_cosf(u1) * mm_cosf(v0)) * 127;
+                vtx[1].normal[1] = (mm_sinf(u1) * mm_cosf(v0)) * 127;
+                vtx[1].normal[2] = (mm_sinf(v0)) * 127;
 
-                vtx[3] = vtx[2];
-                vtx[5] = vtx[0];
+                vtx[2].normal[0] = (mm_cosf(u1) * mm_cosf(v1)) * 127;
+                vtx[2].normal[1] = (mm_sinf(u1) * mm_cosf(v1)) * 127;
+                vtx[2].normal[2] = (mm_sinf(v1)) * 127;
+                
+                vtx[3].normal[0] = (mm_cosf(u0) * mm_cosf(v1)) * 127;
+                vtx[3].normal[1] = (mm_sinf(u0) * mm_cosf(v1)) * 127; 
+                vtx[3].normal[2] = (mm_sinf(v1)) * 127;
 
+                vtx[4] = vtx[0];
+                vtx[5] = vtx[2];
                 vtx += 6;
             }
         }
