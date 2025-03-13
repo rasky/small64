@@ -29,14 +29,6 @@ static inline void ucode_set_vertices_address(uint32_t addr, uint32_t addrEnd) {
   ((volatile uint32_t*)SP_DMEM)[3] = addrEnd;
 }
 
-/**
- * Sets new address where the ucode will write RDP commands to
- * @param addr
- */
-static inline void ucode_set_rdp_queue(uint32_t addr) {
-  ((volatile uint32_t*)SP_DMEM)[4] = addr;
-}
-
 static inline void ucode_set_srt(float scale, float rot[3]) 
 {
   float cosR0 = mm_cosf(rot[0]);

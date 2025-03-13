@@ -161,22 +161,24 @@ void demo(void)
         memset32(Z_BUFFER, (ZBUF_MAX<<16)|ZBUF_MAX, 320*240*2);
         draw_bkg();
         mesh();
-        
-        uint32_t t = C0_COUNT();
+
+        //uint32_t t = C0_COUNT();
 
         uint32_t vert_buff_end = mesh();
-        ucode_set_rdp_queue((uint32_t)RDP_BUFFER);
         ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f});
-  
-        *DP_START = (uint32_t)RDP_BUFFER;
-        *DP_END = (uint32_t)RDP_BUFFER;
-        
+
+        *DP_STATUS = DP_WSTATUS_SET_XBUS;
+        *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
+        *DP_END = 0x30;
+
         ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
         ucode_run();
         dp_wait();
 
-        t = C0_COUNT() - t;
-        debugf("3D: %ldus\n", TICKS_TO_US(t));
+        *DP_STATUS = DP_WSTATUS_CLR_XBUS;
+
+        //t = C0_COUNT() - t;
+        //debugf("3D: %ldus\n", TICKS_TO_US(t));
     
         //draw_scroller(vi_buffer_draw);
     
