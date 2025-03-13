@@ -1,5 +1,4 @@
-extern uint8_t _binary_build_debug_rsp_u3d_text_bin_start[];
-extern uint8_t _binary_build_debug_rsp_u3d_text_bin_end[];
+#include "build/rsp.inc"
 
 /**
  * Loads the ucode onto the RSP making it ready to be run.
@@ -14,7 +13,7 @@ static inline void ucode_init()
   uint32_t shift_val = 0x08040201;
   SP_DMEM[0] = shift_val << 4;
   SP_DMEM[1] = shift_val;
-  rsp_dma_from_rdram((void*)0x1000, _binary_build_debug_rsp_u3d_text_bin_start, IMEM_SIZE);
+  rsp_dma_from_rdram((void*)0x1000, rsp_code, IMEM_SIZE);
 }
 
 /**
