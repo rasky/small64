@@ -72,32 +72,11 @@ SOURCE_DIR = .
 build/%.o: %.S
 	@echo "    [AS] $@"
 	@mkdir -p build
-
-	set -e; \
-	FILENAME="$(notdir $(basename $@))"; \
-	if case "$$FILENAME" in "rsp"*) true;; *) false;; esac; then \
-		SYMPREFIX="$(subst .,_,$(subst /,_,$(basename $@)))"; \
-		TEXTSECTION="$(basename $@).text"; \
-		DATASECTION="$(basename $@).data"; \
-		METASECTION="$(basename $@).meta"; \
-		BINARY="$(basename $@).elf"; \
-		echo "    [RSP] $<"; \
-		$(N64_CC) $(RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@ $<; \
-		mv "$@" $$BINARY; \
-		$(N64_OBJCOPY) -O binary -j .text $$BINARY $$TEXTSECTION.bin; \
-		$(N64_OBJCOPY) -O binary -j .data $$BINARY $$DATASECTION.bin; \
-		$(N64_SIZE) -G $$BINARY; \
-		xxd -i 
-		rm $$TEXTSECTION.bin $$DATASECTION.bin $$METASECTION.bin $$TEXTSECTION.o $$DATASECTION.o $$METASECTION.o; \
-	else \
-		$(N64_CC) -c $(N64_ASFLAGS) $(N64_ASPPFLAGS) -o $@ $<; \
-	fi
-
-asm = rsp_u3d.S
+	$(N64_CC) -c $(N64_ASFLAGS) $(N64_ASPPFLAGS) -o $@ $<; \
 
 # RSP ucode
-build/demo.o: build/rsp.inc
-build/rsp.inc: rsp_u3d.S
+build/demo.o: build/rsp_u3d.inc
+build/rsp_u3d.inc: rsp_u3d.S
 	@echo "    [RSP] $<"
 	$(N64_CC) $(N64_RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@.elf $<
 	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
@@ -105,10 +84,11 @@ build/rsp.inc: rsp_u3d.S
 	$(N64_SIZE) -G $@.elf
 	xxd -n rsp_code -i $@.text.bin >$@
 	xxd -n rsp_data -i $@.data.bin >>$@
+	sed -i -e 's/unsigned /__attribute__((aligned(8))) const unsigned /g' $@
 	rm $@.elf $@.text.bin $@.data.bin
 
 # Build initial binary with all stages (uncompressed)
-build/small.elf: small.1.ld $(OBJS) build/rsp.inc
+build/small.elf: small.1.ld $(OBJS) build/rsp_u3d.inc
 	@echo "    [LD] $@"
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -o $@ $(filter %.o,$^)
 
