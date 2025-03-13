@@ -315,7 +315,7 @@ static inline uint32_t __byteswap32(uint32_t x)
     return y;
 }
 
-static inline void rsp_dma_to_rdram(void* dmem, void *rdram, int size)
+static inline void rsp_dma_to_rdram(const void* dmem, void *rdram, int size)
 {
     while (*SP_DMA_FULL) {}
     *SP_RSP_ADDR = (uint32_t)dmem;
@@ -324,7 +324,7 @@ static inline void rsp_dma_to_rdram(void* dmem, void *rdram, int size)
     while (*SP_DMA_BUSY) {}
 }
 
-static inline void rsp_dma_from_rdram(void* dmem, void *rdram, int size)
+static inline void rsp_dma_from_rdram(void* dmem, const void *rdram, int size)
 {
     while (*SP_DMA_FULL) {}
     *SP_RSP_ADDR = (uint32_t)dmem;

@@ -8,6 +8,19 @@ N64_CFLAGS += -DDEBUG -Os
 
 all: small64_debug.z64
 
+$(BUILD_DIR)/demo.o: $(BUILD_DIR)/rsp_u3d.inc
+$(BUILD_DIR)/rsp_u3d.inc: rsp_u3d.S
+	@echo "    [RSP] $<"
+	$(N64_CC) $(N64_RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@.elf $<
+	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
+	$(N64_OBJCOPY) -O binary -j .data $@.elf $@.data.bin
+	$(N64_SIZE) -G $@.elf
+	xxd -n rsp_code -i $@.text.bin >$@
+	xxd -n rsp_data -i $@.data.bin >>$@
+	sed -i -e 's/unsigned /__attribute__((aligned(8))) const unsigned /g' $@
+	rm $@.elf $@.text.bin $@.data.bin
+
+
 small64_debug.z64: N64_ROM_TITLE="Small64 (Debug)"
 $(BUILD_DIR)/small64_debug.elf: $(src:%.c=$(BUILD_DIR)/%.o) $(asm:%.S=$(BUILD_DIR)/%.o)
 
