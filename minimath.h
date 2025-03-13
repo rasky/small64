@@ -53,18 +53,20 @@ static float mm_cosf0(float x) {
 }
 #endif
 
+__attribute__((const))
 static float mm_sinf(float x) {
     while (x < -MM_PI) x += 2 * MM_PI;
     while (x >  MM_PI) x -= 2 * MM_PI;
     
     const float B = 4.0f / MM_PI;
     const float C = -4.0f / (MM_PI * MM_PI);
-    float y = B * x + C * x * fabsf(x);
+    float y = B * x + C * x * __builtin_fabsf(x);
     
     const float P = 0.225f;
-    return P * (y * fabsf(y) - y) + y;
+    return P * (y * __builtin_fabsf(y) - y) + y;
 }
 
+__attribute__((const))
 static float mm_cosf(float x) {
     return mm_sinf(x + MM_PI/2);
 }
