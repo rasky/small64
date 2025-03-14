@@ -52,6 +52,8 @@ FINAL_SRCS = stage0.S stage0_bins.S
 N64_ASPPFLAGS += -DNDEBUG -DPROD
 N64_CFLAGS += -DNDEBUG -DPROD
 
+build/demo.o: N64_CFLAGS += -G1024
+
 all: small.z64
 
 build/%.o: %.c

@@ -28,6 +28,10 @@ int stage1(void)
     // Acknowledge the boot with PIF
     si_write(0x7FC, 0x8);
 
+    // Prepare GP for stage2
+    extern char _gp;
+    asm("la $gp, %0"::"i"(&_gp));
+
     const int memsize = 4*1024*1024;
     return memsize;
 }

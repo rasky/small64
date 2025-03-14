@@ -39,6 +39,7 @@ SECTIONS {
     } > imem
 
     .text.stage2 0x80000000 + SIZEOF(.text.stage1) : {
+        _gp = . + 0x8000;
         __stage2 = .;
         __stage2_start = .;
         KEEP(build/demo.o(.text.demo))
