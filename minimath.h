@@ -71,4 +71,7 @@ static float mm_cosf(float x) {
     return mm_sinf(x + MM_PI/2);
 }
 
+#define mm_cosf(x)   (__builtin_constant_p(x) ? __builtin_cosf(x) : mm_cosf(x))
+#define mm_sinf(x)   (__builtin_constant_p(x) ? __builtin_sinf(x) : mm_sinf(x))
+
 #endif
