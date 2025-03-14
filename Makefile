@@ -84,9 +84,8 @@ build/rsp_u3d.inc: rsp_u3d.S
 	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
 	$(N64_OBJCOPY) -O binary -j .data $@.elf $@.data.bin
 	$(N64_SIZE) -G $@.elf
-	xxd -n rsp_code -i $@.text.bin >$@
-	xxd -n rsp_data -i $@.data.bin >>$@
-	sed -i -e 's/unsigned /__attribute__((aligned(8))) const unsigned /g' $@
+	./tools/xxd.py -n rsp_code -a 8 $@.text.bin >$@
+	./tools/xxd.py -n rsp_data -a 8 $@.data.bin >>$@
 	rm $@.elf $@.text.bin $@.data.bin
 
 # Build initial binary with all stages (uncompressed)
