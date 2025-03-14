@@ -268,7 +268,7 @@ swap_end:
     vmadm vtmp_f, vslope_i, vhml
     vmadn vtmp_f, vslope_f, v__
     vmadh vtmp_i, vslope_i, v__
-
+#if 0
     # NR: 2 - R*X   
     vor vk2, vzero, K2
     vsubc vtmp_f, vzero, vtmp_f
@@ -279,6 +279,7 @@ swap_end:
     vmadm vk2, vtmp_i, vslope_f
     vmadn vslope_f, vtmp_f, vslope_i
     vmadh vslope_i, vtmp_i, vslope_i
+#endif
     #vmadn vslope_f, vzero, vzero     # re-read vslope_f in case of overflow
 
     # vhml      =   HX MX LX MY    HY   MY   LY   NZf
@@ -547,23 +548,18 @@ calc_attrs:
     sdv vfinal_f.e4, 0x10,s3
     sdv    vdx_f.e4, 0x18,s3
     sdv    vde_i.e4, 0x20,s3
-    # sdv    vdy_i.e4, 0x28,s3 ## ????
+    sdv    vdy_i.e4, 0x28,s3
     sdv    vde_f.e4, 0x30,s3
     sdv    vdy_f.e4, 0x38,s3
 
     addi s3, 0x50 # advance DMEM pointer
 
-    # Store z
+    # Store z (ignore slope and use a uniform depth for a triangle)
+    sqv    vzero, (-0x10),s3
     ssv vfinal_i.e7, (0x00 - 0x10),s3
-    ssv vfinal_f.e7, (0x02 - 0x10),s3
-    ssv    vdx_i.e7, (0x04 - 0x10),s3
-    ssv    vdx_f.e7, (0x06 - 0x10),s3
-    ssv    vde_i.e7, (0x08 - 0x10),s3
-    ssv    vde_f.e7, (0x0A - 0x10),s3
-    ssv    vdy_i.e7, (0x0C - 0x10),s3
-    
+
     jr ra
-    ssv    vdy_f.e7, (0x0E - 0x10),s3
+      ssv vfinal_f.e7, (0x02 - 0x10),s3
 
     #undef tricm
     #undef vtx1 
