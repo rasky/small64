@@ -98,8 +98,6 @@
     TRI_BUFF: .ds.b 192
     .align 4
     VERT_BUFF: .ds.b 32
-    .align 1
-    TRI_CONST1: .ds.b 16
     .align 4
     RSPQ_SCRATCH_MEM: .ds.b 16
     STATE_MEM_END:
@@ -111,33 +109,27 @@ OVERLAY_CODE_START:
 Main:
   vxor $v00, $v00, $v00 # inline-ASM
   lpv $v31, 0, 0, $zero
-  ori $t1, $zero, %lo(TRI_CONST1)
-  lw $s5, %lo(VERTEX_ADDR_END + 0)
   lw $s6, %lo(VERTEX_ADDR + 0)
+  lw $s5, %lo(VERTEX_ADDR_END + 0)
   vmudl $v30, $v31, $v31.e7
-  sqv $v00, 0, 0, $t1 ## Barrier: 0x1
-  vxor $v01, $v00, $v31.e6
-  ori $t0, $zero, 0xFFFF
-  sh $t0, ($t1) ## Barrier: 0x1
-  sdv $v01, 0, 8, $t1 ## Barrier: 0x1
   MAIN_LOOP:
-  ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
-  ldv $v02, 0, 24, $zero
   ori $t0, $zero, %lo(VERT_BUFF)
   addiu $t1, $zero, 24
-  mtc0 $t0, COP0_DMA_SPADDR ## Barrier: 0x2
-  mtc0 $s6, COP0_DMA_RAMADDR ## Barrier: 0x2
+  mtc0 $t0, COP0_DMA_SPADDR ## Barrier: 0x1
+  addu $t2, $t0, $t1
+  ldv $v02, 0, 24, $zero
+  mtc0 $s6, COP0_DMA_RAMADDR ## Barrier: 0x1
+  vxor $v01, $v00, $v31.e6
+  ldv $v04, 0, 40, $zero
   ori $a1, $zero, %lo(TRI_BUFF)
   ldv $v03, 0, 32, $zero
-  ldv $v03, 8, 32, $zero
-  vxor $v01, $v00, $v31.e6
-  addu $t2, $t0, $t1
+  mtc0 $t1, COP0_DMA_READ ## Barrier: 0x1
   ldv $v02, 8, 24, $zero
-  addiu $a2, $a1, 64
-  ldv $v04, 0, 40, $zero
-  mtc0 $t1, COP0_DMA_READ ## Barrier: 0x2
   addu $s6, $s6, $t1
+  addiu $a2, $a1, 64
   ldv $v04, 8, 40, $zero
+  ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
+  ldv $v03, 8, 32, $zero
   LABEL_0001:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0001
@@ -148,20 +140,21 @@ Main:
   vmacf $v29, $v03, $v05.h1
   vmacf $v05, $v04, $v05.h2
   vor $v06, $v00, $v05.e6
-  addiu $t0, $t0, 8
   vmulf $v06, $v06, $v06.v
+  addiu $t0, $t0, 8
   vmudm $v05, $v05, $v31.e5
   vaddc $v05, $v05, $v01.v
-  sdv $v05, 0, 0, $a1 ## Barrier: 0x4
-  suv $v06, 4, 8, $a1 ## Barrier: 0x4
+  sdv $v05, 0, 0, $a1 ## Barrier: 0x2
+  suv $v06, 4, 8, $a1 ## Barrier: 0x2
+  slv $v05, 8, 12, $a1 ## Barrier: 0x2
   bne $t0, $t2, LABEL_0003
   addiu $a1, $a1, 64
   LABEL_0004:
-  ori $a1, $zero, %lo(TRI_BUFF)
   ori $a0, $zero, 0xCF00
+  ori $a1, $zero, %lo(TRI_BUFF)
   LABEL_0005:
-  mfc0 $t3, COP0_DP_CURRENT
   mfc0 $t4, COP0_DP_END
+  mfc0 $t3, COP0_DP_CURRENT
   bne $t3, $t4, LABEL_0005
   addiu $v0, $zero, 1
   LABEL_0006:

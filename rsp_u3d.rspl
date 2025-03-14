@@ -41,9 +41,6 @@ state
   alignas(16) u8 TRI_BUFF[3][64];
   alignas(16) u8 VERT_BUFF[32];
 
-  u16 TRI_CONST1[8];
-  
-
   vec16 RSPQ_SCRATCH_MEM; 
 }
 
@@ -83,14 +80,6 @@ macro globalSetup()
   asm("vxor $v00, $v00, $v00");
   VSHIFT8 = load_vec_s8(ZERO);
   VSHIFT = VSHIFT8 >>> 8;
-
-  // @TODO:
-  u16 a = 0xFFFF;
-  vec16 b = 0x200;
-  u32 addr = TRI_CONST1;
-  @Barrier("const") store(VZERO, addr);
-  @Barrier("const") store(a, addr);
-  @Barrier("const") store(b.xyzw, addr, 8);
 }
 
 @NoReturn
@@ -151,6 +140,10 @@ function Main()
     
     @Barrier("attr") store(pos.xyzw, vtx1, 0); 
     @Barrier("attr") store_vec_u8(col.X, vtx1, 8);
+
+    //pos.Y = 0;  
+    @Barrier("attr") store(pos.XY, vtx1, 0xC); 
+
     vtx1 += 64;
     vertDMEM += 8; 
   } while(vertDMEM != vertDMEMEnd)

@@ -376,9 +376,7 @@ swap_end:
     #define attr1_s     vattr1.e4
     #define attr2_s     vattr2.e4
     #define attr3_s     vattr3.e4
-    #define attr1_invw  vattr1.e6
-    #define attr2_invw  vattr2.e6
-    #define attr3_invw  vattr3.e6
+
     #define attr1_z     vattr1.e7
     #define attr2_z     vattr2.e7
     #define attr3_z     vattr3.e7
@@ -390,74 +388,14 @@ swap_end:
     llv attr2_s, VTX_ATTR_S,vtx2
     llv attr3_s, VTX_ATTR_S,vtx3
 
-    # We need to normalize INV_W in [0..1], by dividing them by the maximum INV_W.
-    # We will multiply by W instead, and thus we search for the minimum W.
-    lw t0, VTX_ATTR_W(vtx1)
-    lw t1, VTX_ATTR_W(vtx2)
-    blt t0, t1, 1f
-    lw t2, VTX_ATTR_W(vtx3)
-    move t0, t1
-1:
-    blt t0, t2, 1f
-    nop
-    move t0, t2
-1:
-    mtc2 t0, vinvw_f.e0
-    srl t0, 16
-    mtc2 t0, vinvw_i.e0
-
-    lsv vinvw_i.e4, VTX_ATTR_INVWi,vtx1
-    lsv vinvw_i.e5, VTX_ATTR_INVWi,vtx2
-    lsv vinvw_i.e6, VTX_ATTR_INVWi,vtx3
-
-    lsv vinvw_f.e4, VTX_ATTR_INVWf,vtx1
-    lsv vinvw_f.e5, VTX_ATTR_INVWf,vtx2
-    lsv vinvw_f.e6, VTX_ATTR_INVWf,vtx3
-
-    #define K_FFFF     vtmp.e0
-
-    li s0, %lo(TRI_CONST1)+8
-    lsv K_FFFF, -8,s0
-
-    # invw:     minw -- -- --            invw1 invw2 invw3 --
-    #
-    # We need to multiply minw with the three invw. All numbers are positive s16.16,
-    # and the result is known to fit 0..1. By doing a standard 32-bit multiplication
-    # on RSP, we end up with a positive s16.16 number, where the integer word is zero.
-    # In fact, in theory W * 1/W = 1, but both numbers are likely missing enough bits
-    # of precision that the result will always be slightly lower than 1 (and thus the
-    # integer part will be 0).
-    vmudl v__,     vinvw_f, vinvw_f.e0
-    vmadm v__,     vinvw_i, vinvw_f.e0
-    vmadn vinvw_f, vinvw_f, vinvw_i.e0
-    vmadh vinvw_i, vinvw_i, vinvw_i.e0
+    vsubc vinvw_f, $v00, $v30.e7
+    vmov vinvw_f.e0, $v31.e6
+    vmov vinvw_f.e1, $v31.e6
+    vmov vinvw_f.e2, $v31.e6
     
-    # So now vinvw_i should be 0 (in lanes 4..6). It turns out there is one exception:
-    # minw == invw == 1.0. In that case, the result will be exactly 1, and thus
-    # vinvw_i will be 1. Since we want to simplify further calculations and avoid
-    # taking vinvw_i into account, we want to replace 0x1_0000 with 0x0_FFFF.
-    # Do a manual saturation: vinvw_f = (vinvw_i == 0 ? vinvw_f : 0xFFFF)
-    veq  vinvw_i, vzero
-    vmrg vinvw_f, K_FFFF
-
-    # Load 0x200 in the first 4 lanes of the vector, using a misaliged lqv.
-    # 0x200 is the constant that can be used to >>7, which will be used for
-    # the RGBA components.
-    #
-    # invw:  0x200 0x200 0x200 0x200   invw1 invw2 invw3 --
-    lqv vinvw_f, 0,s0
-
     vmudm vattr1, vinvw_f.h0
     vmudm vattr2, vinvw_f.h1
     vmudm vattr3, vinvw_f.h2
-
-    # Change inv_w from 0.16 to s0.15 by shifting by one
-    vsrl vinvw_f, vinvw_f, 1
-
-    # Copy inv_w components into ATTRn
-    vmov vattr1.e6, vinvw_f.e4
-    vmov vattr2.e6, vinvw_f.e5
-    vmov vattr3.e6, vinvw_f.e6
 
     lsv attr1_z, VTX_ATTR_Z,vtx1  # Load Z
     lsv attr2_z, VTX_ATTR_Z,vtx2

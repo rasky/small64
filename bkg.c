@@ -57,12 +57,13 @@ uint64_t dl_bkg[] = {
 
     // setup for the following 3D draw
     [42] = RdpSyncPipe(),
-           RdpSetCombine(RDPQ_COMBINER2(
-                (SHADE,0,PRIM,0), (0,0,0,1),
-                (SHADE,0,PRIM,0), (0,0,0,1)
+           RdpSyncTile(),
+           RdpSetCombine(RDPQ_COMBINER1(
+                (SHADE,PRIM,TEX0,0), (0,0,0,1)
            )),
+           RdpSetTileSizeI(TILE0, 0, 0, 8, 8),
            RdpSetOtherModes(SOM_CYCLE_1 | SOM_Z_COMPARE | SOM_Z_WRITE),
-           RdpSetPrimColor(RGBA32(0xFF, 0x66, 0x44, 0xFF)),
+           RdpSetPrimColor(RGBA32(0x33, 0, 0, 0)),
     [64] = RdpSyncFull(),
 };
 
