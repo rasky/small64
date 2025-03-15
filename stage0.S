@@ -50,19 +50,20 @@ post_stage1_decomp:
     # run stage1 from cache because icache fetches only from RDRAM, not dcache.
     li $a1, 0x80900000      # src
     li $a0, 0xA4000000      # dst
-    addiu $sp, $a0, 0x1000
+    addiu $a2, $a0, 0x1000
     addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
-    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    #li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    addiu $sp, $a0, 0x40
     b .Lcopy_loop
-     addiu inbuf, outbuf_end, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
+     addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
     .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
 .Lcopy_loop:
     lw $t0, 0($a1)
     addiu $a1, 4
     sw $t0, 0x1000($a0)
-    bne $a0, $sp, .Lcopy_loop   # Always copy 4K. We don't know how big is stage0 exactly
+    bne $a0, $a2, .Lcopy_loop   # Always copy 4K. We don't know how big is stage0 exactly
      addiu $a0, 4
-    jr $sp                      # Jump to stage1 in IMEM
+    jr $a2                      # Jump to stage1 in IMEM
 
 
 # ============================
@@ -86,7 +87,7 @@ _start:
     addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
     addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
     addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
-    b decompress_shrinkler
+    b decompress
      li shr_return, 0xB0000000            # Post-decompression go to ROM start
 
 stage2_decomp:
@@ -101,6 +102,155 @@ stage2_decomp:
     li shr_return, 0x80000000     # Stage2 entrypoint (cached address)
     addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
     addiu shr_return, STAGE1_SIZE
+    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+
+#if 1
+
+    ###################################################
+    # Fallthrough to upkr decompression
+    ###################################################
+
+.macro lax reg, address
+    addiu \reg, $t3, \address - _start + 0x40
+.endm
+
+#define offset                 $t4
+#define ra2                    $t5
+#define ctx                    $t6
+#define state                  $t7
+#define prev_was_literal       $t8
+#define decoded_bit            $v0
+#define ctx2                   $v1
+#define number_incr            $k0
+
+decompress:
+    li prev_was_literal, 256+128   # 0x180
+    move state, prev_was_literal
+.Lctx_init_loop:
+    sub $t1, $sp, state
+    sb prev_was_literal, 0($t1)    # store 0x80
+    addiu state, -1
+    bnez state, .Lctx_init_loop
+     lui $t3, %hi(decompress)
+    # state starts at 0
+    # prev_was_literal starts at 0x180 (non-zero)
+
+.Lmainloop:
+    bge outbuf, outbuf_end, .Lexit
+     li ctx, 0
+    bal upkr_decode_bit
+     lax $fp, .Lliteral
+    
+    beqz prev_was_literal, .Lread_offset_inc_ctx
+     sll ctx, 8
+    bal upkr_decode_bit
+     lax $fp, .Lfinished_offset
+
+    addiu ctx, -1
+.Lread_offset_inc_ctx:
+    addiu ctx, 1
+.Lread_offset:
+    bal upkr_decode_number
+     nop
+    addiu offset, prev_was_literal, 1
+    beqz offset, .Lexit
+     nop
+    
+.Lfinished_offset:
+    addiu ctx, 64
+    bal upkr_decode_number
+     nop
+1:
+    addu $t0, outbuf, offset
+    lbu ctx, ($t0)
+.Lstore_byte:
+    sb ctx, (outbuf)
+    addiu prev_was_literal, 1
+    bltz prev_was_literal, 1b
+     addiu outbuf, 1
+    b .Lmainloop
+     nop
+
+.Lliteral:                              # ctx starts at 1
+    bal upkr_decode_bit
+     move $fp, $ra
+    addiu ctx, -1                       # reverse the increment by upkr_decode_bit
+    sll ctx, 1                          # make room for the new bit
+    addu ctx, decoded_bit               # merge in decoded bit
+    srl prev_was_literal, ctx, 8
+    beqz prev_was_literal, .Lliteral
+     nop
+    b .Lstore_byte
+     nop
+
+.Lexit:
+    jr shr_return
+     nop
+
+
+upkr_decode_number:
+    move ra2, $ra
+    move ctx2, ctx
+    li prev_was_literal, 0
+    li number_incr, -1
+.Lelias_loop:
+    bal upkr_decode_bit
+     lax $fp, .Lnumber_end
+    bal upkr_decode_bit
+     lax $fp, .Lelias_loop_next
+    addu prev_was_literal, number_incr
+.Lelias_loop_next:
+    b .Lelias_loop
+     addu number_incr, number_incr
+.Lnumber_end:
+    addu prev_was_literal, number_incr
+    jr ra2
+     move ctx, ctx2
+
+upkr_load_byte:
+    lbu decoded_bit, 0(inbuf)
+    addiu inbuf, 1
+    sll state, 8
+    addu state, decoded_bit
+
+#define prob   $t1
+upkr_decode_bit:
+    srl decoded_bit, state, 12
+    beqz decoded_bit, upkr_load_byte
+     nop
+
+    addiu ctx, 1
+    subu $t0, $sp, ctx
+    lbu prob, 0($t0)
+
+    andi $t2, state, 0xff
+    sltu decoded_bit, $t2, prob
+    beqz decoded_bit, 1f
+     nop
+    xori prob, 0xff
+    addiu prob, 1
+1:  
+    srl $t2, state, 8
+    addiu $t2, $t2, 1
+    subu $t2, decoded_bit
+    mult $t2, prob
+    mflo $t2
+    subu state, $t2
+
+    addiu $t2, prob, 8
+    srl $t2, 4
+    subu prob, $t2
+    beqz decoded_bit, 1f
+     nop
+    neg prob
+    move $fp, $ra
+1:
+    jr $fp
+     sb prob, ($t0)
+
+#undef prob
+
+#else
 
     ###################################################
     # Fallthrough to shrinkler decompression
@@ -134,7 +284,7 @@ stage2_decomp:
 #define CONTEXT_GROUP_LENGTH     ((3<<8) + 1)
 
 
-decompress_shrinkler:
+decompress:
     addiu $t1, $sp, -18
     addiu $sp, $sp, -ROUND_UP(NUM_CONTEXTS*2, 8)-16
     li intervalsize, 0x8000
@@ -286,3 +436,5 @@ decompress_shrinkler:
     jr $ra
      sh $t0, 0(ctx)
     .set at
+
+#endif

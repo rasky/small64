@@ -3,6 +3,8 @@ ifneq ($(V),1)
 endif
 
 SOURCE_DIR=.
+# 0 = Shrinkler, 1 = UPKR
+COMPRESSION_ALGO=1
 COMPRESSION_LEVEL=9
 
 ifeq ($(shell uname -s),Darwin)
@@ -41,6 +43,7 @@ N64_RSPASFLAGS = -march=mips1 -mabi=32 -Wa,--fatal-warnings
 N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 
 SHRINKER ?= ../Shrinkler/build/native/Shrinkler
+UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
 OBJS = build/stage1.o build/minidragon.o build/rdram.o
@@ -99,7 +102,11 @@ build/stage12.bin: build/small.elf
 	$(N64_OBJCOPY) -O binary -j .text.stage1 $< build/stage1.bin.raw
 	$(N64_OBJCOPY) -O binary -j .text.stage2 $< build/stage2.bin.raw
 	cat build/stage1.bin.raw build/stage2.bin.raw >$@.raw
-	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null
+	if [ ${COMPRESSION_ALGO} -eq 0 ]; then \
+	 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null; \
+	else \
+		$(UPKR) -${COMPRESSION_LEVEL} -p 1 $@.raw $@; \
+	fi
 
 # Build final binary with compressed stages
 %.z64: build/small.elf small.2.ld build/stage12.bin
