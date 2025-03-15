@@ -52,9 +52,9 @@ post_stage1_decomp:
     li $a0, 0xA4000000      # dst
     addiu $a2, $a0, 0x1000
     addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
-    #li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
     addiu $sp, $a0, 0x40
-    b .Lcopy_loop
+    #b .Lcopy_loop
      addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
     .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
 .Lcopy_loop:
@@ -102,7 +102,7 @@ stage2_decomp:
     li shr_return, 0x80000000     # Stage2 entrypoint (cached address)
     addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
     addiu shr_return, STAGE1_SIZE
-    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    #li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
     #
     # Fallthrough to decompression code
     #
@@ -122,31 +122,48 @@ stage2_decomp:
     #
     ###################################################
 
-.macro lax reg, address
-    addiu \reg, $t3, \address - _start + 0x40
-.endm
-
 #define UPKR_PARITY            4
 #define UPKR_PARITY_LOG2       (UPKR_PARITY/2)     // works for 1,2,4
+#define UPKR_NUM_CONTEXTS      (256*UPKR_PARITY + 64*2*UPKR_PARITY)
 
+#define lax_base               $t3
 #define offset                 $t4
 #define ra2                    $t5
 #define ctx                    $t6
 #define state                  $t7
 #define prev_was_literal       $t8
 #define decoded_bit            $v0
-#define ctx2                   $v1
 #define number_incr            $k0
 
+.equ hex.$zr, 0;  .equ hex.$at, 1;  .equ hex.$v0, 2;  .equ hex.$v1, 3
+.equ hex.$a0, 4;  .equ hex.$a1, 5;  .equ hex.$a2, 6;  .equ hex.$a3, 7
+.equ hex.$t0, 8;  .equ hex.$t1, 9;  .equ hex.$t2, 10; .equ hex.$t3, 11
+.equ hex.$t4, 12; .equ hex.$t5, 13; .equ hex.$t6, 14; .equ hex.$t7, 15
+.equ hex.$s0, 16; .equ hex.$s1, 17; .equ hex.$s2, 18; .equ hex.$s3, 19
+.equ hex.$s4, 20; .equ hex.$s5, 21; .equ hex.$s6, 22; .equ hex.$s7, 23
+.equ hex.$t8, 24; .equ hex.$t9, 25; .equ hex.$k0, 26; .equ hex.$k1, 27
+.equ hex.$gp, 28; .equ hex.$sp, 29; .equ hex.$fp, 30; .equ hex.$ra, 31
+
+.macro delay_bltz reg, label, prev_branch
+    .long (1<<26) | (hex.\reg << 21) | (0 << 16) | ((\label - \prev_branch) >> 2)
+.endm
+
+# lax load an address of a label into a register. We use $t3 as a base address
+# to calculate the offset, so that the load can be performed as a relative
+# offset in one instruction, rather than a 32-bit load in two.
+.macro lax reg, address
+    addiu \reg, lax_base, \address - _start + 0x40
+.endm
+
 decompress:
-    li prev_was_literal, (256*UPKR_PARITY + 64*2*UPKR_PARITY) | 0x80
+    li prev_was_literal, UPKR_NUM_CONTEXTS | 0x80
     move state, prev_was_literal
 .Lctx_init_loop:
     sub $t1, $sp, state
     sb prev_was_literal, 0($t1)    # store 0x80
     addiu state, -1
     bnez state, .Lctx_init_loop
-     lui $t3, %hi(decompress)
+     lui lax_base, %hi(decompress)
     # state starts at 0
     # prev_was_literal starts at 0x180 (non-zero)
 
@@ -156,14 +173,14 @@ decompress:
     bal upkr_decode_bit
      lax $fp, .Lliteral
     
-    beqz prev_was_literal, .Lread_offset_inc_ctx
+    beqz prev_was_literal, .Lread_offset
      li ctx, 256*UPKR_PARITY
     bal upkr_decode_bit
      lax $fp, .Lread_offset
 
-.Lfinished_offset:
-    bal upkr_decode_number
-     addiu ctx, 64*UPKR_PARITY
+.Lgot_offset:                           # we have match offset in "offset"
+    bal upkr_decode_number              # decode match length
+     li ctx, (256+64)*UPKR_PARITY
 .Lcopy_byte:
     addu $t0, outbuf, offset
     b .Lstore_byte
@@ -177,29 +194,24 @@ decompress:
     addu ctx, decoded_bit               # merge in decoded bit
     srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
     beqz prev_was_literal, .Lliteral
-     nop
 .Lstore_byte:
-    sb ctx, (outbuf)
+     sb ctx, (outbuf)
     addiu prev_was_literal, 1
-    bltz prev_was_literal, .Lcopy_byte
-     addiu outbuf, 1
+    addiu outbuf, 1
     b .Lmainloop
-     nop
+     delay_bltz prev_was_literal, .Lcopy_byte, .Lmainloop
 
-.Lread_offset_inc_ctx:
-    addiu ctx, UPKR_PARITY
 .Lread_offset:
     bal upkr_decode_number
-     nop
+     li ctx, (256+1)*UPKR_PARITY
     addiu offset, prev_was_literal, 1
-    bnez offset, .Lfinished_offset
+    bnez offset, .Lgot_offset
      nop
 .Lexit:
     jr shr_return
 
 upkr_decode_number:
      move ra2, $ra
-    move ctx2, ctx
     li prev_was_literal, 0
     li number_incr, -1
 .Lelias_loop:
@@ -212,9 +224,8 @@ upkr_decode_number:
     b .Lelias_loop
      addu number_incr, number_incr
 .Lnumber_end:
-    addu prev_was_literal, number_incr
     jr ra2
-     move ctx, ctx2
+     addu prev_was_literal, number_incr
 
 upkr_load_byte:
     lbu decoded_bit, 0(inbuf)
