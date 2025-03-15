@@ -112,6 +112,15 @@ stage2_decomp:
     ###################################################
     # upkr decompressor
     ###################################################
+    #
+    # This decompressor support parity (1, 2, or 4), by changing the UPKR_PARITY
+    # value. The support comes at the cost of extra stack space, but requires
+    # no extra opcodes.
+    #
+    # The decompressor assumes the following upkr configuration:
+    #    --invert-new-offset-bit
+    #
+    ###################################################
 
 .macro lax reg, address
     addiu \reg, $t3, \address - _start + 0x40
@@ -150,32 +159,15 @@ decompress:
     beqz prev_was_literal, .Lread_offset_inc_ctx
      li ctx, 256*UPKR_PARITY
     bal upkr_decode_bit
-     lax $fp, .Lfinished_offset
+     lax $fp, .Lread_offset
 
-    addiu ctx, -UPKR_PARITY
-.Lread_offset_inc_ctx:
-    addiu ctx, UPKR_PARITY
-.Lread_offset:
-    bal upkr_decode_number
-     nop
-    addiu offset, prev_was_literal, 1
-    beqz offset, .Lexit
-     nop
-    
 .Lfinished_offset:
-    addiu ctx, 64*UPKR_PARITY
     bal upkr_decode_number
-     nop
-1:
+     addiu ctx, 64*UPKR_PARITY
+.Lcopy_byte:
     addu $t0, outbuf, offset
-    lbu ctx, ($t0)
-.Lstore_byte:
-    sb ctx, (outbuf)
-    addiu prev_was_literal, 1
-    bltz prev_was_literal, 1b
-     addiu outbuf, 1
-    b .Lmainloop
-     nop
+    b .Lstore_byte
+     lbu ctx, ($t0)
 
 .Lliteral:                              # ctx starts at UPKR_PARITY (1, 2 or 4) | parity_lsb
     bal upkr_decode_bit
@@ -186,16 +178,27 @@ decompress:
     srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
     beqz prev_was_literal, .Lliteral
      nop
-    b .Lstore_byte
+.Lstore_byte:
+    sb ctx, (outbuf)
+    addiu prev_was_literal, 1
+    bltz prev_was_literal, .Lcopy_byte
+     addiu outbuf, 1
+    b .Lmainloop
      nop
 
+.Lread_offset_inc_ctx:
+    addiu ctx, UPKR_PARITY
+.Lread_offset:
+    bal upkr_decode_number
+     nop
+    addiu offset, prev_was_literal, 1
+    bnez offset, .Lfinished_offset
+     nop
 .Lexit:
     jr shr_return
-     nop
-
 
 upkr_decode_number:
-    move ra2, $ra
+     move ra2, $ra
     move ctx2, ctx
     li prev_was_literal, 0
     li number_incr, -1
