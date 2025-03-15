@@ -38,11 +38,7 @@
     # PI DOM1 parameters. The first byte is actually unused so we change the
     # common value from 0x80 to 0x11, so that the opcode disasms as "andi"
     # which means that it can also be run if necessary.
-#if 1
     .long 0x31371240            # andi $s7, $t1, 0x1240
-#else
-    .long 0x80371240
-#endif
 post_stage1_decomp:
     # This code is run after stage1 has been decompressed.
     # outbuf now points to the end of the decompressed stage1 in cache.
@@ -53,10 +49,11 @@ post_stage1_decomp:
     addiu $a2, $a0, 0x1000
     addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
     li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
-    addiu $sp, $a0, 0x40
-    #b .Lcopy_loop
-     addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
+    addiu $sp, $a0, 0x40               # Stack at 0xA400'0040, hoping it's enough
+    addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
     .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
+                                # When run, it's a "beql $k1, $t5", plus an invalid opcode
+                                # that won't ever be run, since beql will skip it
 .Lcopy_loop:
     lw $t0, 0($a1)
     addiu $a1, 4
@@ -96,13 +93,11 @@ stage2_decomp:
     # NOTE:
     # Both inbuf and outbuf_end have been already set in the header code (post_stage1_decomp).
     # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
-    # inbuf = PI address of stage12. We read from PI this time because DMEM might have been corrupted
-    #         by stage1 (it was used as stack)
+    # inbuf = DMEM address of compressed stage12.
     li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
     li shr_return, 0x80000000     # Stage2 entrypoint (cached address)
     addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
     addiu shr_return, STAGE1_SIZE
-    #li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
     #
     # Fallthrough to decompression code
     #
@@ -134,6 +129,7 @@ stage2_decomp:
 #define prev_was_literal       $t8
 #define decoded_bit            $v0
 #define number_incr            $k0
+#define upkr_decode_number_addr $k1
 
 .equ hex.$zr, 0;  .equ hex.$at, 1;  .equ hex.$v0, 2;  .equ hex.$v1, 3
 .equ hex.$a0, 4;  .equ hex.$a1, 5;  .equ hex.$a2, 6;  .equ hex.$a3, 7
@@ -179,7 +175,7 @@ decompress:
      lax $fp, .Lread_offset
 
 .Lgot_offset:                           # we have match offset in "offset"
-    bal upkr_decode_number              # decode match length
+    jalr ra2, upkr_decode_number_addr   # decode match length
      li ctx, (256+64)*UPKR_PARITY
 .Lcopy_byte:
     addu $t0, outbuf, offset
@@ -202,7 +198,7 @@ decompress:
      delay_bltz prev_was_literal, .Lcopy_byte, .Lmainloop
 
 .Lread_offset:
-    bal upkr_decode_number
+    jalr ra2, upkr_decode_number_addr
      li ctx, (256+1)*UPKR_PARITY
     addiu offset, prev_was_literal, 1
     bnez offset, .Lgot_offset
@@ -210,8 +206,48 @@ decompress:
 .Lexit:
     jr shr_return
 
+upkr_load_byte:
+     lbu decoded_bit, 0(inbuf)
+    addiu inbuf, 1
+    sll state, 8
+    addu state, decoded_bit
+
+#define prob   $t1
+upkr_decode_bit:
+    srl decoded_bit, state, 12
+    beqz decoded_bit, upkr_load_byte
+     andi $t2, state, 0xff
+
+    addiu ctx, UPKR_PARITY
+    subu $t0, $sp, ctx
+    lbu prob, 0($t0)
+
+    sltu decoded_bit, $t2, prob
+    bnezl decoded_bit, 1f
+     neg prob
+1:  
+    andi prob, 0xff
+    srl $t2, state, 8
+    addiu $t2, $t2, 1
+    subu $t2, decoded_bit
+    mult $t2, prob
+    mflo $t2
+    subu state, $t2
+
+    addiu $t2, prob, 8
+    srl $t2, 4
+    beqz decoded_bit, 1f
+     subu prob, $t2
+    neg prob
+    move $fp, $ra
+1:
+    # Store the updated probability and return. $fp now contains the correct
+    # return target (depending on whether the bit was 0 or 1). Take the chance
+    # to initialize upkr_decode_number_addr to the address of upkr_decode_number.
+    jalr upkr_decode_number_addr, $fp
+     sb prob, ($t0)
+
 upkr_decode_number:
-     move ra2, $ra
     li prev_was_literal, 0
     li number_incr, -1
 .Lelias_loop:
@@ -227,46 +263,6 @@ upkr_decode_number:
     jr ra2
      addu prev_was_literal, number_incr
 
-upkr_load_byte:
-    lbu decoded_bit, 0(inbuf)
-    addiu inbuf, 1
-    sll state, 8
-    addu state, decoded_bit
-
-#define prob   $t1
-upkr_decode_bit:
-    srl decoded_bit, state, 12
-    beqz decoded_bit, upkr_load_byte
-     nop
-
-    addiu ctx, UPKR_PARITY
-    subu $t0, $sp, ctx
-    lbu prob, 0($t0)
-
-    andi $t2, state, 0xff
-    sltu decoded_bit, $t2, prob
-    beqz decoded_bit, 1f
-     nop
-    xori prob, 0xff
-    addiu prob, 1
-1:  
-    srl $t2, state, 8
-    addiu $t2, $t2, 1
-    subu $t2, decoded_bit
-    mult $t2, prob
-    mflo $t2
-    subu state, $t2
-
-    addiu $t2, prob, 8
-    srl $t2, 4
-    subu prob, $t2
-    beqz decoded_bit, 1f
-     nop
-    neg prob
-    move $fp, $ra
-1:
-    jr $fp
-     sb prob, ($t0)
 
 #undef prob
 
