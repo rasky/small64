@@ -103,11 +103,14 @@ stage2_decomp:
     addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
     addiu shr_return, STAGE1_SIZE
     li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    #
+    # Fallthrough to decompression code
+    #
 
-#if 1
+#if COMPRESSION_ALGO == 1
 
     ###################################################
-    # Fallthrough to upkr decompression
+    # upkr decompressor
     ###################################################
 
 .macro lax reg, address

@@ -113,6 +113,7 @@ build/stage12.bin: build/small.elf
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
+		-DCOMPRESSION_ALGO=$(COMPRESSION_ALGO) \
 		-o build/small.compressed.elf \
 		$(FINAL_SRCS)
 	$(N64_READELF) --wide --sections build/small.compressed.elf | grep .text
