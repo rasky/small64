@@ -105,7 +105,7 @@ build/stage12.bin: build/small.elf
 	if [ ${COMPRESSION_ALGO} -eq 0 ]; then \
 	 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null; \
 	else \
-		$(UPKR) -${COMPRESSION_LEVEL} -p 1 $@.raw $@; \
+		$(UPKR) -${COMPRESSION_LEVEL} -p 4 $@.raw $@; \
 	fi
 
 # Build final binary with compressed stages

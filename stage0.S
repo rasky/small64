@@ -114,6 +114,9 @@ stage2_decomp:
     addiu \reg, $t3, \address - _start + 0x40
 .endm
 
+#define UPKR_PARITY            4
+#define UPKR_PARITY_LOG2       (UPKR_PARITY/2)     // works for 1,2,4
+
 #define offset                 $t4
 #define ra2                    $t5
 #define ctx                    $t6
@@ -124,7 +127,7 @@ stage2_decomp:
 #define number_incr            $k0
 
 decompress:
-    li prev_was_literal, 256+128   # 0x180
+    li prev_was_literal, (256*UPKR_PARITY + 64*2*UPKR_PARITY) | 0x80
     move state, prev_was_literal
 .Lctx_init_loop:
     sub $t1, $sp, state
@@ -137,18 +140,18 @@ decompress:
 
 .Lmainloop:
     bge outbuf, outbuf_end, .Lexit
-     li ctx, 0
+     andi ctx, outbuf, UPKR_PARITY-1
     bal upkr_decode_bit
      lax $fp, .Lliteral
     
     beqz prev_was_literal, .Lread_offset_inc_ctx
-     sll ctx, 8
+     li ctx, 256*UPKR_PARITY
     bal upkr_decode_bit
      lax $fp, .Lfinished_offset
 
-    addiu ctx, -1
+    addiu ctx, -UPKR_PARITY
 .Lread_offset_inc_ctx:
-    addiu ctx, 1
+    addiu ctx, UPKR_PARITY
 .Lread_offset:
     bal upkr_decode_number
      nop
@@ -157,7 +160,7 @@ decompress:
      nop
     
 .Lfinished_offset:
-    addiu ctx, 64
+    addiu ctx, 64*UPKR_PARITY
     bal upkr_decode_number
      nop
 1:
@@ -171,13 +174,13 @@ decompress:
     b .Lmainloop
      nop
 
-.Lliteral:                              # ctx starts at 1
+.Lliteral:                              # ctx starts at UPKR_PARITY (1, 2 or 4) | parity_lsb
     bal upkr_decode_bit
      move $fp, $ra
-    addiu ctx, -1                       # reverse the increment by upkr_decode_bit
+    addiu ctx, -UPKR_PARITY             # reverse the increment by upkr_decode_bit
     sll ctx, 1                          # make room for the new bit
     addu ctx, decoded_bit               # merge in decoded bit
-    srl prev_was_literal, ctx, 8
+    srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
     beqz prev_was_literal, .Lliteral
      nop
     b .Lstore_byte
@@ -219,7 +222,7 @@ upkr_decode_bit:
     beqz decoded_bit, upkr_load_byte
      nop
 
-    addiu ctx, 1
+    addiu ctx, UPKR_PARITY
     subu $t0, $sp, ctx
     lbu prob, 0($t0)
 
