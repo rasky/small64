@@ -29,7 +29,7 @@ static inline void ucode_set_vertices_address(uint32_t addr, uint32_t addrEnd) {
   ((volatile uint32_t*)SP_DMEM)[3] = addrEnd;
 }
 
-static inline void ucode_set_srt(float scale, float rot[3]) 
+static inline void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t posY) 
 {
   float cosR0 = mm_cosf(rot[0]);
   float cosR2 = mm_cosf(rot[2]);
@@ -54,12 +54,13 @@ static inline void ucode_set_srt(float scale, float rot[3])
   };
 
   // @TODO: set scale 
-  SP_DMEM[24/4 + 0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[24/4 + 1] = ((int32_t)(mat[2] * 0x7FFF) << 16);
-  SP_DMEM[24/4 + 2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[24/4 + 3] = ((int32_t)(mat[5] * 0x7FFF) << 16);
-  SP_DMEM[24/4 + 4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
-  SP_DMEM[24/4 + 5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
+  uint32_t* DMEM_BASE = (uint32_t*)&SP_DMEM[24/4];
+  DMEM_BASE[0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
+  DMEM_BASE[1] = ((int32_t)(mat[2] * 0x7FFF) << 16) | posX;
+  DMEM_BASE[2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
+  DMEM_BASE[3] = ((int32_t)(mat[5] * 0x7FFF) << 16) | posY;
+  DMEM_BASE[4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
+  DMEM_BASE[5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
 }
 
 /**

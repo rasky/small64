@@ -88,8 +88,8 @@
     VERTEX_ADDR: .ds.b 4
     .align 2
     VERTEX_ADDR_END: .ds.b 4
-    .align 2
-    RDPQ_CURRENT: .ds.b 4
+    .align 1
+    SCREEN_OFFSET: .ds.b 4
     .align 3
     MATRIX: .ds.b 24
     .align 4
@@ -109,27 +109,29 @@ OVERLAY_CODE_START:
 Main:
   vxor $v00, $v00, $v00 # inline-ASM
   lpv $v31, 0, 0, $zero
+  vmudl $v30, $v31, $v31.e7
   lw $s6, %lo(VERTEX_ADDR + 0)
   lw $s5, %lo(VERTEX_ADDR_END + 0)
-  vmudl $v30, $v31, $v31.e7
   MAIN_LOOP:
   ori $t0, $zero, %lo(VERT_BUFF)
   addiu $t1, $zero, 24
   mtc0 $t0, COP0_DMA_SPADDR ## Barrier: 0x1
-  addu $t2, $t0, $t1
-  ldv $v02, 0, 24, $zero
   mtc0 $s6, COP0_DMA_RAMADDR ## Barrier: 0x1
-  vxor $v01, $v00, $v31.e6
-  ldv $v04, 0, 40, $zero
-  ori $a1, $zero, %lo(TRI_BUFF)
-  ldv $v03, 0, 32, $zero
   mtc0 $t1, COP0_DMA_READ ## Barrier: 0x1
-  ldv $v02, 8, 24, $zero
   addu $s6, $s6, $t1
-  addiu $a2, $a1, 64
-  ldv $v04, 8, 40, $zero
+  addu $t2, $t0, $t1
+  vxor $v01, $v00, $v31.e6
+  lsv $v01, 0, 30, $zero
+  lsv $v01, 2, 38, $zero
   ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
+  ldv $v02, 0, 24, $zero
+  ldv $v02, 8, 24, $zero
+  ldv $v03, 0, 32, $zero
   ldv $v03, 8, 32, $zero
+  ldv $v04, 0, 40, $zero
+  ldv $v04, 8, 40, $zero
+  ori $a1, $zero, %lo(TRI_BUFF)
+  addiu $a2, $a1, 64
   LABEL_0001:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0001
@@ -141,28 +143,95 @@ Main:
   vmacf $v05, $v04, $v05.h2
   vor $v06, $v00, $v05.e6
   vmulf $v06, $v06, $v06.v
-  addiu $t0, $t0, 8
-  vmudm $v05, $v05, $v31.e5
-  vaddc $v05, $v05, $v01.v
+  vmudm $v07, $v05, $v31.e5
+  vaddc $v05, $v07, $v01.v
   sdv $v05, 0, 0, $a1 ## Barrier: 0x2
   suv $v06, 4, 8, $a1 ## Barrier: 0x2
-  slv $v05, 8, 12, $a1 ## Barrier: 0x2
+  slv $v07, 8, 12, $a1 ## Barrier: 0x2
+  addiu $t0, $t0, 8
   bne $t0, $t2, LABEL_0003
   addiu $a1, $a1, 64
   LABEL_0004:
-  ori $a0, $zero, 0xCF00
   ori $a1, $zero, %lo(TRI_BUFF)
+  ori $a0, $zero, 0xCF00
   LABEL_0005:
-  mfc0 $t4, COP0_DP_END
   mfc0 $t3, COP0_DP_CURRENT
+  mfc0 $t4, COP0_DP_END
   bne $t3, $t4, LABEL_0005
   addiu $v0, $zero, 1
   LABEL_0006:
-  jal RDPQ_Triangle ## Args: $a0, $a1, $a2, $a3, $v0, $s3
   mtc0 $s3, COP0_DP_START
+  #define zero $0
+  #define v0 $2
+  #define v1 $3
+  #define a0 $4
+  #define a1 $5
+  #define a2 $6
+  #define a3 $7
+  #define t0 $8
+  #define t1 $9
+  #define t2 $10
+  #define t3 $11
+  #define t4 $12
+  #define t5 $13
+  #define t6 $14
+  #define t7 $15
+  #define s0 $16
+  #define s1 $17
+  #define s2 $18
+  #define s3 $19
+  #define s4 $20
+  #define s5 $21
+  #define s6 $22
+  #define s7 $23
+  #define t8 $24
+  #define t9 $25
+  #define k0 $26
+  #define k1 $27
+  #define gp $28
+  #define sp $29
+  #define fp $30
+  #define ra $31
+  .set at
+  .set macro
+  #include "./rspq_triangle.inc"
+  .set noreorder
+  .set noat
+  .set nomacro
+  #undef zero
+  #undef at
+  #undef v0
+  #undef v1
+  #undef a0
+  #undef a1
+  #undef a2
+  #undef a3
+  #undef t0
+  #undef t1
+  #undef t2
+  #undef t3
+  #undef t4
+  #undef t5
+  #undef t6
+  #undef t7
+  #undef s0
+  #undef s1
+  #undef s2
+  #undef s3
+  #undef s4
+  #undef s5
+  #undef s6
+  #undef s7
+  #undef t8
+  #undef t9
+  #undef k0
+  #undef k1
+  #undef gp
+  #undef sp
+  #undef fp
+  #undef ra
   RDPQ_Triangle_Skip:
   bne $s6, $s5, LABEL_0007
-  nop
   addiu $t5, $zero, 41
   sb $t5, ($s3)
   addiu $s3, $s3, 8
@@ -207,4 +276,3 @@ OVERLAY_CODE_END:
 
 .set at
 .set macro
-#include "./rspq_triangle.inc"

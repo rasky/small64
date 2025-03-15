@@ -12,7 +12,7 @@ state
   
   u32 VERTEX_ADDR;
   u32 VERTEX_ADDR_END;
-  u32 RDPQ_CURRENT;
+  s16 SCREEN_OFFSET[2];
   
   alignas(8) u16 MATRIX[3][4]; // fractional matrix for scaling + rotation
 
@@ -105,8 +105,12 @@ function Main()
   vertRDRAM += vertSize; 
 
   u32 vertDMEMEnd = vertDMEM + vertSize;
-  vec16 screenOffset = 0x200;
- 
+  vec16 screenOffset = 0x200; // (needed for depth)
+
+  // postion is stored as the W component of the matrix in the first two rows
+  screenOffset.x = load(ZERO, 30).x;  
+  screenOffset.y = load(ZERO, 38).x;
+  
   u16<$s3> dplDMEM = RSPQ_DMEM_BUFFER;
   
   vec16 mat0 = load(ZERO, 24).xyzwxyzw;
@@ -114,9 +118,9 @@ function Main()
   vec16 mat2 = load(ZERO, 40).xyzwxyzw; 
 
   // @TODO: hardcode in rdpq_triangle?
-  u16<$a1> vtx1 = TRI_BUFF;
+  u16<$a1> vtx1 = TRI_BUFF; 
   u16<$a2> vtx2 = vtx1 + 64;
-  u16<$a3> vtx3;
+  u16<$a3> vtx3; 
 
   loop { 
     RA = get_dma_busy();
@@ -124,25 +128,32 @@ function Main()
   } while(RA != 0)
 
   loop {
+    // xyz_ = position, XYZ_ = normal (w & W are unused)
     vec16 pos = load_vec_s8(vertDMEM);
     
-    // transform position, this is only rotation and scaling.
-    // since the matrix is a 16bit fractional, we can also only scale down here
+    // transform position & normals, this is only rotation.
+    // since the matrix is a 16bit fractional, we can apply it to both position and normals
     VTEMP = mat0:sfract  * pos.xxxxXXXX;  
     VTEMP = mat1:sfract +* pos.yyyyYYYY; 
     pos   = mat2:sfract +* pos.zzzzZZZZ;
 
+    // take normals Z component (angle to screen) and square it
+    // this will give a cheap fresnel-like effect
     vec16 col = pos.Z;
     col:sfract *= col:sfract;
 
-    pos >>= 6;
-    pos += screenOffset;
+    // basic uvgen, take the XY of the normals to generate spherical UVs
+    vec16 uv = pos >> 6;
+
+    // offset in screen-space, this also means the model will not get scaled or moved in 3D, only 2D
+    pos = uv + screenOffset;
+    //uv >>= 1;
+    //uv += 0x4000;
     
+    // write-back for RDPQ_Triangle
     @Barrier("attr") store(pos.xyzw, vtx1, 0); 
     @Barrier("attr") store_vec_u8(col.X, vtx1, 8);
-
-    //pos.Y = 0;  
-    @Barrier("attr") store(pos.XY, vtx1, 0xC); 
+    @Barrier("attr") store(uv.XY, vtx1, 0xC); 
 
     vtx1 += 64;
     vertDMEM += 8; 
@@ -164,12 +175,13 @@ function Main()
  
   set_rdp_start(dplDMEM);
 
-  RDPQ_Triangle(triCmd, vtx1, vtx2, vtx3, cull, dplDMEM);
-  RDPQ_Triangle_Skip:
+  //RDPQ_Triangle(triCmd, vtx1, vtx2, vtx3, cull, dplDMEM);
+  asm_include("./rspq_triangle.inc");
+  RDPQ_Triangle_Skip: 
   
+  const u8 CMD_SYNC_FULL = 0x29; 
   if(vertRDRAM == vertRDRAMEnd) 
   {
-    const u8 CMD_SYNC_FULL = 0x29;    
     store(CMD_SYNC_FULL, dplDMEM);
     dplDMEM += 8;
   }
@@ -183,4 +195,3 @@ function Main()
   asm("break"); // halts RSP
 } 
 
-include "./rspq_triangle.inc"

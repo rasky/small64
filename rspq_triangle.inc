@@ -32,8 +32,6 @@ setup_vsll8    vshift8, 0
 #
 ##########################################################################
 
-.section .text.rdpq_triangle_send_async
-
   #####################################################################
     # RDPQ_Triangle
     #
@@ -65,9 +63,7 @@ setup_vsll8    vshift8, 0
     #   the real result is from the saturated number). In any case, much better than an overflow.
     #   test_rdpq_triangle checks if there's a saturation and skip checks for known-wrong values.
 
-    .func RDPQ_Triangle
-RDPQ_Triangle: 
-  #define tricmd a0
+    #define tricmd a0
     #define vtx1   a1
     #define vtx2   a2
     #define vtx3   a3
@@ -128,7 +124,7 @@ RDPQ_Triangle:
     #define VTX_ATTR_INVWi  20
     #define VTX_ATTR_INVWf  22
 
-    j half_swap
+    b half_swap
     li t0, 1
 
 swap_loop:
@@ -495,9 +491,7 @@ calc_attrs:
     # Store z (ignore slope and use a uniform depth for a triangle)
     sqv    vzero, (-0x10),s3
     ssv vfinal_i.e7, (0x00 - 0x10),s3
-
-    jr ra
-      ssv vfinal_f.e7, (0x02 - 0x10),s3
+    ssv vfinal_f.e7, (0x02 - 0x10),s3
 
     #undef tricm
     #undef vtx1 

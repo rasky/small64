@@ -164,7 +164,7 @@ void demo(void)
         //uint32_t t = C0_COUNT();
 
         uint32_t vert_buff_end = mesh();
-        ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f});
+        ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
 
         *DP_STATUS = DP_WSTATUS_SET_XBUS;
         *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
