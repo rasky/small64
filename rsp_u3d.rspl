@@ -128,7 +128,7 @@ function Main()
     RA = get_dma_busy();
     vtx3 = vtx2 + 64; // fill delay slot
   } while(RA != 0)
-
+  
   loop {
     // xyz_ = position, XYZ_ = normal (w & W are unused)
     vec16 pos = load_vec_s8(vertDMEM);
@@ -139,22 +139,31 @@ function Main()
     VTEMP = mat1:sfract +* pos.yyyyYYYY; 
     pos   = mat2:sfract +* pos.zzzzZZZZ;
 
-    // take normals Z component (angle to screen) and square it
-    // this will give a cheap fresnel-like effect
-    vec16 col = pos.Z;
-    col:sfract *= col:sfract;
+    vec16 spec = VZERO - pos.Z;
 
+    // fresnel, we scale it up a bit to have a very sharp falloff
+    vec16 fresnel = pos:ufract * pos:ufract.Z;
+    fresnel:sint *= 4;
+  
+    // specular, square inverted fresnel a few times here
+    // since it's the same operation it will vanish during compression
+    spec:ufract *= spec:ufract; 
+    spec:ufract *= spec:ufract; 
+    spec:ufract *= spec:ufract; 
+    vec16 col = spec:ufract * spec:ufract; 
+    col:sint *= 2;
+  
+    col.w = fresnel.Z; // merge fresnel and specular into on color
+ 
     // basic uvgen, take the XY of the normals to generate spherical UVs
     vec16 uv = pos >> 6;
 
     // offset in screen-space, this also means the model will not get scaled or moved in 3D, only 2D
     pos = uv + screenOffset;
-    //uv >>= 1;
-    //uv += 0x4000;
     
     // write-back for RDPQ_Triangle
     @Barrier("attr") store(pos.xyzw, vtx1, 0); 
-    @Barrier("attr") store_vec_u8(col.X, vtx1, 8);
+    @Barrier("attr") store_vec_u8(col.x, vtx1, 8);
     @Barrier("attr") store(uv.XY, vtx1, 0xC); 
 
     vtx1 += 64;

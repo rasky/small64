@@ -120,9 +120,6 @@ setup_vsll8    vshift8, 0
     #define VTX_ATTR_RGBA   8
     #define VTX_ATTR_S      12
     #define VTX_ATTR_T      14
-    #define VTX_ATTR_W      16
-    #define VTX_ATTR_INVWi  20
-    #define VTX_ATTR_INVWf  22
 
     lh yA, VTX_ATTR_Y(vtx1)
     lh yB, VTX_ATTR_Y(vtx2)
@@ -550,6 +547,3 @@ setup_vsll8    vshift8, 0
     #undef VTX_ATTR_RGBA
     #undef VTX_ATTR_S    
     #undef VTX_ATTR_T    
-    #undef VTX_ATTR_W    
-    #undef VTX_ATTR_INVWi
-    #undef VTX_ATTR_INVWf

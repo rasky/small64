@@ -45,7 +45,7 @@
     ((cast64(0x35)<<56) | (cast64((fmt)) << 53) | (cast64((size)) << 51) | (cast64(((line)+7)/8) << 41) | (cast64((addr)/8) << 32) | ((tidx) << 24))
 
 #define RdpSetTile_Mask(masks, maskt)       (((masks)<<4) | ((maskt)<<14))
-#define RdpSetTile_Scale(scales, scalet)    (((scales)<<0) | ((scalet)<<10))
+#define RdpSetTile_Scale(scales, scalet)    ( (((scales)<<0) & 0b1111) | (((scalet)<<10) & (0b1111 << 10)) )
 #define RdpSetTile_Mirror(mirrors, mirrort) (((mirrors)<<8) | ((mirrort)<<18))
 
 #define RdpSetTexImage(fmt, size, addr, width) \

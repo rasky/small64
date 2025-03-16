@@ -142,13 +142,20 @@ Main:
   vmulf $v29, $v02, $v05.h0
   vmacf $v29, $v03, $v05.h1
   vmacf $v05, $v04, $v05.h2
-  vor $v06, $v00, $v05.e6
-  vmulf $v06, $v06, $v06.v
-  vmudm $v07, $v05, $v31.e5
-  vaddc $v05, $v07, $v01.v
+  vsubc $v06, $v00, $v05.e6
+  vmulu $v07, $v05, $v05.e6
+  vmudh $v07, $v07, $v30.e5
+  vmulu $v06, $v06, $v06.v
+  vmulu $v06, $v06, $v06.v
+  vmulu $v06, $v06, $v06.v
+  vmulu $v08, $v06, $v06.v
+  vmudh $v08, $v08, $v30.e6
+  vmov $v08.e3, $v07.e6
+  vmudm $v09, $v05, $v31.e5
+  vaddc $v05, $v09, $v01.v
   sdv $v05, 0, 0, $a1 ## Barrier: 0x2
-  suv $v06, 4, 8, $a1 ## Barrier: 0x2
-  slv $v07, 8, 12, $a1 ## Barrier: 0x2
+  suv $v08, 0, 8, $a1 ## Barrier: 0x2
+  slv $v09, 8, 12, $a1 ## Barrier: 0x2
   addiu $t0, $t0, 8
   bne $t0, $t2, LABEL_0003
   addiu $a1, $a1, 64

@@ -1,5 +1,6 @@
 #define SONG_FREQUENCY      32000
 
+static const char bbsong_data[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
 static float pow2_approx(float n) {
     const float ln2 = 0.693147f;
@@ -19,10 +20,9 @@ float bbgen(int t)
     float s(int t)
     {
         static const int8_t rel[] = {-7,-11,-2,-4,-9,10,12};
-        static const char x[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
         if (t < 0) t = 0;        
-        char ch = x[(t>>12)&127];
+        char ch = bbsong_data[(t>>12)&127];
         int val = (ch >= 'a') ? rel[ch-'a'] : ch-'0';
         return ((int)(2.09f * t * pow2_approx(val/12.0f)) & 128) * (1-t%4096/4096.0f);
         // return ((int)(pow2s[val+11]*t) & 128) * (1-t%4096/4096.0f);
