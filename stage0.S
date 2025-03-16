@@ -147,6 +147,9 @@ stage2_decomp:
 .equ hex.$t8, 24; .equ hex.$t9, 25; .equ hex.$k0, 26; .equ hex.$k1, 27
 .equ hex.$gp, 28; .equ hex.$sp, 29; .equ hex.$fp, 30; .equ hex.$ra, 31
 
+# Run a bltz encoded in a way that can be used in a delay slot of another
+# branch. prev_branch is the target of the previous branch. Notice that the
+# first opcode there will always be run as delay slot of *this* bltz.
 .macro delay_bltz reg, label, prev_branch
     .long (1<<26) | (hex.\reg << 21) | (0 << 16) | ((\label - \prev_branch) >> 2)
 .endm
@@ -158,67 +161,83 @@ stage2_decomp:
     addiu \reg, lax_base, \address - _start + 0x40
 .endm
 
+# Main UPKR decompression loop
 decompress:
-    li prev_was_literal, UPKR_NUM_CONTEXTS | 0x80
-    move state, prev_was_literal
+    # Init the decompression contexts with 0x80 (50% probability).
+    li prev_was_literal, 0x80               # init value
+    li state, UPKR_NUM_CONTEXTS             # number of contexts to init
 .Lctx_init_loop:
-    sub $t1, $sp, state
-    sb prev_was_literal, 0($t1)    # store 0x80
-    addiu state, -1
-    bnez state, .Lctx_init_loop
-     lui lax_base, %hi(decompress)
-    # state starts at 0
-    # prev_was_literal starts at 0x180 (non-zero)
+    sub $t1, $sp, state                     # calculate the address of the context
+    sb prev_was_literal, 0($t1)             # store 0x80
+    addiu state, -1                 
+    bnez state, .Lctx_init_loop             # loop until all contexts are initialized
+     lui lax_base, %hi(decompress)          # init lax_base to this segment (so lax works)
+    # state now is 0
+    # prev_was_literal now is non-zero
 
 .Lmainloop:
-    bge outbuf, outbuf_end, .Lexit
-     andi ctx, outbuf, UPKR_PARITY-1
-    bal upkr_decode_bit
+    bge outbuf, outbuf_end, .Lexit          # check if we reached the end of the output buffer
+     andi ctx, outbuf, UPKR_PARITY-1        # calculate the context index (depending on output buffer and parity)
+    bal upkr_decode_bit                     # decode a bit: 1->match, 0->literal
      lax $fp, .Lliteral
     
-    beqz prev_was_literal, .Lread_offset
+    beqz prev_was_literal, .Lread_offset    # if prev was a literal, we must read an offset
      li ctx, 256*UPKR_PARITY
-    bal upkr_decode_bit
+    bal upkr_decode_bit                     # decode a bit: 1->new offset 0->reuse offset
      lax $fp, .Lgot_offset
 
 .Lread_offset:
-    jalr ra2, upkr_decode_number_addr
-     li ctx, (256+1)*UPKR_PARITY
-    addiu offset, prev_was_literal, 1
+    jalr ra2, upkr_decode_number_addr       # decode match offset into "prev_was_literal"
+     li ctx, (256+1)*UPKR_PARITY            # (it is decoded as negative)
+    addiu offset, prev_was_literal, 1       # subtract 1 (offset is encoded as +1)
 
-.Lgot_offset:                           # we have match offset in "offset"
-    jalr ra2, upkr_decode_number_addr   # decode match length
+.Lgot_offset:                               # we have match offset in "offset"
+    jalr ra2, upkr_decode_number_addr       # decode match length (negative)
      li ctx, (256+64)*UPKR_PARITY
-    beqz offset, .Lexit
-.Lcopy_byte:
-    addu $t0, outbuf, offset
+    beqz offset, .Lexit                     # if offset is 0, it's EOF. Notice we should
+                                            # check this before decoding the length
+                                            # but we save an opcode this way
+                                    
+.Lcopy_byte:                                # copy loop
+     addu $t0, outbuf, offset               # calculate the current start of the match    
     b .Lstore_byte
-     lbu ctx, ($t0)
+     lbu ctx, ($t0)                         # read a byte to copy and jump to store
 
-.Lliteral:                              # ctx starts at UPKR_PARITY (1, 2 or 4) | parity_lsb
-    bal upkr_decode_bit
+.Lliteral:                                  # literal decoding
+                                            # ctx starts at UPKR_PARITY (1, 2 or 4) | parity_lsb
+    bal upkr_decode_bit                     # decode next bit of literal
      move $fp, $ra
-    addiu ctx, -UPKR_PARITY             # reverse the increment by upkr_decode_bit
-    sll ctx, 1                          # make room for the new bit
-    addu ctx, decoded_bit               # merge in decoded bit
+    addiu ctx, -UPKR_PARITY                 # reverse the increment by upkr_decode_bit
+sll ctx, 1                                  # make room for the new bit
+    addu ctx, decoded_bit                   # merge in decoded bit
     srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
-    beqz prev_was_literal, .Lliteral
+    beqz prev_was_literal, .Lliteral        # check if we're done (8 bits decoded)
+
+    # NOTE: this code is shared for both literal and match. In case of literal,
+    # prev_was_literal is > 0 (see just above) and the actual value doesn't matter.
+    # In case of match, prev_was_literal is < 0 and it is the match counter.
 .Lstore_byte:
-     sb ctx, (outbuf)
-    addiu prev_was_literal, 1
-    addiu outbuf, 1
-    b .Lmainloop
+     sb ctx, (outbuf)                       # store the byte (either literal or copied)
+    addiu prev_was_literal, 1               # decrement match counter
+    addiu outbuf, 1                         # increment output buffer
+    b .Lmainloop                            # prev_was_literal<0? continue copy, otherwise jump back to main loop
      delay_bltz prev_was_literal, .Lcopy_byte, .Lmainloop
 
 .Lexit:
-    jr decomp_return
+    jr decomp_return                        # time to exit
 
+# upkr_load_byte
+#  Shift a byte from the input buffer into "state"
 upkr_load_byte:
      lbu decoded_bit, 0(inbuf)
     addiu inbuf, 1
     sll state, 8
     addu state, decoded_bit
+    # fallthrough to upkr_decode_bit
 
+# upkr_decode_bit:
+#   Decode a single bit from the rANS bytestream into "decoded_bit"
+#   On exit, jump to $ra if the bit is 1, and to $fp if the bit is zero.
 #define prob   $t1
 upkr_decode_bit:
     srl decoded_bit, state, 12
@@ -254,6 +273,9 @@ upkr_decode_bit:
     jalr upkr_decode_number_addr, $fp
      sb prob, ($t0)
 
+# Decode an elias gamma value into "prev_was_literal".
+# The value is stored *negated*, as that's useful for the caller.
+# On exit, return to "ra2"
 upkr_decode_number:
     li prev_was_literal, 0
     li number_incr, -1
