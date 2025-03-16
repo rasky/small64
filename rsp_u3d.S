@@ -3,6 +3,7 @@
 #define RSPQ_EndOverlayHeader ;
 #define RSPQ_BeginSavedState ;
 #define RSPQ_EndSavedState ;
+#define TRI_COMMAND 0xCF00
 #include <rsp.inc>
 
 .set noreorder
@@ -153,7 +154,6 @@ Main:
   addiu $a1, $a1, 64
   LABEL_0004:
   ori $a1, $zero, %lo(TRI_BUFF)
-  ori $a0, $zero, 0xCF00
   LABEL_0005:
   mfc0 $t3, COP0_DP_CURRENT
   mfc0 $t4, COP0_DP_END

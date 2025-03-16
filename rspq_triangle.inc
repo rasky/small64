@@ -69,9 +69,9 @@ setup_vsll8    vshift8, 0
     #define vtx3   a3
     #define cull   v0
 
-    #define y1     t4
-    #define y2     t5
-    #define y3     t6
+    #define yA     t4
+    #define yB     t5
+    #              t6
     #define x1     t7
     #define x2     t8
     #define x3     v0
@@ -124,30 +124,30 @@ setup_vsll8    vshift8, 0
     #define VTX_ATTR_INVWi  20
     #define VTX_ATTR_INVWf  22
 
-    b half_swap
-    li t0, 1
-
-swap_loop:
-    lh y2, VTX_ATTR_Y(vtx2)
-    lh y3, VTX_ATTR_Y(vtx3)
-    blt y2, y3, half_swap
-    move t1, vtx2
-    move vtx2, vtx3
-    move vtx3, t1
-    xor cull, 1
-
-half_swap:
-    lh y1, VTX_ATTR_Y(vtx1)
-    lh y2, VTX_ATTR_Y(vtx2)
-    blt y1, y2, swap_end
+    lh yA, VTX_ATTR_Y(vtx1)
+    lh yB, VTX_ATTR_Y(vtx2)
+    blt yA, yB, 1f
     move t1, vtx1
     move vtx1, vtx2
     move vtx2, t1
     xor cull, 1
-
-swap_end:
-    bnez t0, swap_loop
-    addi t0, -1
+1:
+    lh yA, VTX_ATTR_Y(vtx2)
+    lh yB, VTX_ATTR_Y(vtx3)
+    blt yA, yB, 1f
+    move t1, vtx2
+    move vtx2, vtx3
+    move vtx3, t1
+    xor cull, 1
+1:
+    lh yA, VTX_ATTR_Y(vtx1)
+    lh yB, VTX_ATTR_Y(vtx2)
+    blt yA, yB, 1f
+    move t1, vtx1
+    move vtx1, vtx2
+    move vtx2, t1
+    xor cull, 1
+1:
 
     # We want to build this layout
     #  vxy32 = X3 X2 X3 --    Y3 Y2 Y3 --
@@ -211,7 +211,7 @@ swap_end:
     sge t0, t0, zero
     beq t0, cull, RDPQ_Triangle_Skip
     sll t0, 7
-    or tricmd, t0
+    or tricmd, t0, TRI_COMMAND
 
     # Calculate reciprocal of normal
     vrcph vnz_i.e0, vnz_i.e4
@@ -400,7 +400,7 @@ swap_end:
     ########################################################
     # ATTRIBUTES
     ########################################################
-calc_attrs:
+
     # MA = A2 - A1
     # HA = A3 - A1
     # NOTE: S/T coordinates are kept as s10.5, so they can overflow here.

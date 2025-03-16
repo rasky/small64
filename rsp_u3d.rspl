@@ -6,6 +6,8 @@ include "rsp.inc"
 #define RSPQ_BeginSavedState ;
 #define RSPQ_EndSavedState ;
 
+#define TRI_COMMAND 0xCF00
+
 state 
 {
   u8 SHIFT_DATA[8];
@@ -161,11 +163,11 @@ function Main()
 
   vtx1 = TRI_BUFF;
    
-  u32<$a0> triCmd = 0xCF00;
+  u32<$a0> triCmd;
   u16<$v0> cull;
   
   // wait for the RDP to catch up from the last iteration
-   
+
   u32 curr, end;
   loop {
     curr = get_rdp_current();
