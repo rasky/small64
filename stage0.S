@@ -15,6 +15,10 @@
 # Value of the $t3 register at IPL3 boot
 #define BOOT_T3_VALUE           0xA4000040
 
+# Set to 1 if the ROM ASCII title (8 bytes) can be executed as code,
+# without breaking stage 0.
+#define RUNNABLE_TITLE          1
+
 #define inbuf           $s1
 #define outbuf          $s2
 #define outbuf_end      $s0
@@ -48,10 +52,14 @@ post_stage1_decomp:
     li $a0, 0xA4000000      # dst
     addiu $a2, $a0, 0x1000
     addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
-    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
     addiu $sp, $a0, 0x40               # Stack at 0xA400'0040, hoping it's enough
-    addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
-    .asciiz "Small64"           # ASCIIZ ROM title. Cannot make it longer...
+    #if RUNNABLE_TITLE
+    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    #else
+    b .Lcopy_loop
+    #endif
+     addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
+    .asciiz "Small64"           # ASCIIZ ROM title (8 bytes, including 0 terminator)
                                 # When run, it's a "beql $k1, $t5", plus an invalid opcode
                                 # that won't ever be run, since beql will skip it
 .Lcopy_loop:
@@ -98,6 +106,9 @@ stage2_decomp:
     li decomp_return, 0x80000000     # Stage2 entrypoint (cached address)
     addu $sp, $v0, decomp_return     # $sp start at 0x8000'0000+memsize
     addiu decomp_return, STAGE1_SIZE
+#if !RUNNABLE_TITLE
+    li outbuf_end, 0xB0000000        # Set outbuf_end here if it couldn't fit the header
+#endif
     #
     # Fallthrough to decompression code
     #
