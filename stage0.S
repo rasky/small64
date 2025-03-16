@@ -18,7 +18,7 @@
 #define inbuf           $s1
 #define outbuf          $s2
 #define outbuf_end      $s0
-#define shr_return      $a3
+#define decomp_return   $a3
 
 
     .set at
@@ -85,7 +85,7 @@ _start:
     addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
     addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
     b decompress
-     li shr_return, 0xB0000000            # Post-decompression go to ROM start
+     li decomp_return, 0xB0000000            # Post-decompression go to ROM start
 
 stage2_decomp:
     # Stage1 returned the memory size in $v0
@@ -95,9 +95,9 @@ stage2_decomp:
     # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
     # inbuf = DMEM address of compressed stage12.
     li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
-    li shr_return, 0x80000000     # Stage2 entrypoint (cached address)
-    addu $sp, $v0, shr_return     # $sp start at 0x8000'0000+memsize
-    addiu shr_return, STAGE1_SIZE
+    li decomp_return, 0x80000000     # Stage2 entrypoint (cached address)
+    addu $sp, $v0, decomp_return     # $sp start at 0x8000'0000+memsize
+    addiu decomp_return, STAGE1_SIZE
     #
     # Fallthrough to decompression code
     #
@@ -111,10 +111,6 @@ stage2_decomp:
     # This decompressor support parity (1, 2, or 4), by changing the UPKR_PARITY
     # value. The support comes at the cost of extra stack space, but requires
     # no extra opcodes.
-    #
-    # The decompressor assumes the following upkr configuration:
-    #    --invert-new-offset-bit
-    #
     ###################################################
 
 #define UPKR_PARITY            4
@@ -172,11 +168,17 @@ decompress:
     beqz prev_was_literal, .Lread_offset
      li ctx, 256*UPKR_PARITY
     bal upkr_decode_bit
-     lax $fp, .Lread_offset
+     lax $fp, .Lgot_offset
+
+.Lread_offset:
+    jalr ra2, upkr_decode_number_addr
+     li ctx, (256+1)*UPKR_PARITY
+    addiu offset, prev_was_literal, 1
 
 .Lgot_offset:                           # we have match offset in "offset"
     jalr ra2, upkr_decode_number_addr   # decode match length
      li ctx, (256+64)*UPKR_PARITY
+    beqz offset, .Lexit
 .Lcopy_byte:
     addu $t0, outbuf, offset
     b .Lstore_byte
@@ -197,14 +199,8 @@ decompress:
     b .Lmainloop
      delay_bltz prev_was_literal, .Lcopy_byte, .Lmainloop
 
-.Lread_offset:
-    jalr ra2, upkr_decode_number_addr
-     li ctx, (256+1)*UPKR_PARITY
-    addiu offset, prev_was_literal, 1
-    bnez offset, .Lgot_offset
-     nop
 .Lexit:
-    jr shr_return
+    jr decomp_return
 
 upkr_load_byte:
      lbu decoded_bit, 0(inbuf)
@@ -359,7 +355,7 @@ decompress:
      addiu match_ptr, 1
 
 .Lend:
-    jr shr_return     
+    jr decomp_return     
 
 ###################################################
 # Function: .Llzdecode_number
