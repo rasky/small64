@@ -14,7 +14,7 @@ state
   
   u32 VERTEX_ADDR;
   u32 VERTEX_ADDR_END;
-  s16 SCREEN_OFFSET[2];
+  s16 DISPLACE_FACTOR[2];
   
   alignas(8) u16 MATRIX[3][4]; // fractional matrix for scaling + rotation
 
@@ -114,6 +114,9 @@ function Main()
   screenOffset.y = load(ZERO, 38).x;
   
   u16<$s3> dplDMEM = RSPQ_DMEM_BUFFER;
+
+  vec16 displaceFac;
+  displaceFac.x = load(ZERO, 18).x;
   
   vec16 mat0 = load(ZERO, 24).xyzwxyzw;
   vec16 mat1 = load(ZERO, 32).xyzwxyzw;   
@@ -128,6 +131,11 @@ function Main()
     RA = get_dma_busy();
     vtx3 = vtx2 + 64; // fill delay slot
   } while(RA != 0)
+
+  vec16 posA = load_vec_s8(vertDMEM);
+  vec16 displ = posA:sfract * displaceFac:sfract.x;
+  displ:sfract *= posA:sfract.Z;
+  displ = mat0:sfract +* displ:sfract; 
   
   loop {
     // xyz_ = position, XYZ_ = normal (w & W are unused)
@@ -143,7 +151,7 @@ function Main()
 
     // fresnel, we scale it up a bit to have a very sharp falloff
     vec16 fresnel = pos:ufract * pos:ufract.Z;
-    fresnel:sint *= 4;
+    fresnel:sint *= 2;
   
     // specular, square inverted fresnel a few times here
     // since it's the same operation it will vanish during compression
@@ -155,8 +163,11 @@ function Main()
   
     col.w = fresnel.Z; // merge fresnel and specular into on color
  
-    // basic uvgen, take the XY of the normals to generate spherical UVs
+    pos:sfract += displ:sfract; // also does clamping
+
+    // basic uvgen, take the XY of the normals to generate spherical UVs  
     vec16 uv = pos >> 6;
+    
 
     // offset in screen-space, this also means the model will not get scaled or moved in 3D, only 2D
     pos = uv + screenOffset;
@@ -171,7 +182,7 @@ function Main()
   } while(vertDMEM != vertDMEMEnd)
 
   vtx1 = TRI_BUFF;
-   
+
   u32<$a0> triCmd;
   u16<$v0> cull;
   

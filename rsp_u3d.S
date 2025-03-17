@@ -90,7 +90,7 @@
     .align 2
     VERTEX_ADDR_END: .ds.b 4
     .align 1
-    SCREEN_OFFSET: .ds.b 4
+    DISPLACE_FACTOR: .ds.b 4
     .align 3
     MATRIX: .ds.b 24
     .align 4
@@ -125,37 +125,44 @@ Main:
   lsv $v01, 0, 30, $zero
   lsv $v01, 2, 38, $zero
   ori $s3, $zero, %lo(RSPQ_DMEM_BUFFER)
-  ldv $v02, 0, 24, $zero
-  ldv $v02, 8, 24, $zero
-  ldv $v03, 0, 32, $zero
-  ldv $v03, 8, 32, $zero
-  ldv $v04, 0, 40, $zero
-  ldv $v04, 8, 40, $zero
+  lsv $v02, 0, 18, $zero
+  ldv $v03, 0, 24, $zero
+  ldv $v03, 8, 24, $zero
+  ldv $v04, 0, 32, $zero
+  ldv $v04, 8, 32, $zero
+  ldv $v05, 0, 40, $zero
+  ldv $v05, 8, 40, $zero
   ori $a1, $zero, %lo(TRI_BUFF)
   addiu $a2, $a1, 64
   LABEL_0001:
   mfc0 $ra, COP0_DMA_BUSY
   bne $ra, $zero, LABEL_0001
   addiu $a3, $a2, 64
+  LABEL_0002:
+  lpv $v06, 0, 0, $t0
+  vmulf $v07, $v06, $v02.e0
+  vmulf $v07, $v07, $v06.e6
+  vmacf $v07, $v03, $v07.v
   LABEL_0003:
-  lpv $v05, 0, 0, $t0
-  vmulf $v29, $v02, $v05.h0
-  vmacf $v29, $v03, $v05.h1
-  vmacf $v05, $v04, $v05.h2
-  vsubc $v06, $v00, $v05.e6
-  vmulu $v07, $v05, $v05.e6
-  vmudh $v07, $v07, $v30.e5
-  vmulu $v06, $v06, $v06.v
-  vmulu $v06, $v06, $v06.v
-  vmulu $v06, $v06, $v06.v
-  vmulu $v08, $v06, $v06.v
-  vmudh $v08, $v08, $v30.e6
-  vmov $v08.e3, $v07.e6
-  vmudm $v09, $v05, $v31.e5
-  vaddc $v05, $v09, $v01.v
-  sdv $v05, 0, 0, $a1 ## Barrier: 0x2
-  suv $v08, 0, 8, $a1 ## Barrier: 0x2
-  slv $v09, 8, 12, $a1 ## Barrier: 0x2
+  lpv $v08, 0, 0, $t0
+  vmulf $v29, $v03, $v08.h0
+  vmacf $v29, $v04, $v08.h1
+  vmacf $v08, $v05, $v08.h2
+  vsubc $v09, $v00, $v08.e6
+  vmulu $v10, $v08, $v08.e6
+  vmudh $v10, $v10, $v30.e6
+  vmulu $v09, $v09, $v09.v
+  vmulu $v09, $v09, $v09.v
+  vmulu $v09, $v09, $v09.v
+  vmulu $v11, $v09, $v09.v
+  vmudh $v11, $v11, $v30.e6
+  vmov $v11.e3, $v10.e6
+  vadd $v08, $v08, $v07.v
+  vmudm $v12, $v08, $v31.e5
+  vaddc $v08, $v12, $v01.v
+  sdv $v08, 0, 0, $a1 ## Barrier: 0x2
+  suv $v11, 0, 8, $a1 ## Barrier: 0x2
+  slv $v12, 8, 12, $a1 ## Barrier: 0x2
   addiu $t0, $t0, 8
   bne $t0, $t2, LABEL_0003
   addiu $a1, $a1, 64

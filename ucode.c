@@ -29,6 +29,11 @@ static inline void ucode_set_vertices_address(uint32_t addr, uint32_t addrEnd) {
   ((volatile uint32_t*)SP_DMEM)[3] = addrEnd;
 }
 
+static inline void ucode_set_displace(int factor) 
+{
+  SP_DMEM[16/4] = factor;
+}
+
 static inline void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t posY) 
 {
   float cosR0 = mm_cosf(rot[0]);

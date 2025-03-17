@@ -60,17 +60,21 @@ uint64_t dl_bkg[] = {
            RdpSyncTile(),
            RdpSetCombine(RDPQ_COMBINER2(
               // inverted fresnel, scale down to 0 by amount of fresnel
-              (TEX0,0,SHADE_ALPHA, 0), (0,0,0,1),
+              (TEX1,TEX0,SHADE_ALPHA, TEX0), (0,0,0,1),
               // color in cycle 1 with PRIM, then apply specular
               (COMBINED,0,PRIM,SHADE),     (0,0,0,1)
            )),
 
-    [45] = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, NULL, 8),
-           RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, 8, 0, TILE0) | 
-                RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, -1),
+    [45] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, NULL, 8),
+           RdpSetTile(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 8, 0, TILE0) | 
+                RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, 3),
            RdpLoadTileI(TILE0, 0, 0, 8, 8),
+    [49] = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, NULL, 8),
+           RdpSetTile(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 8, 0x400, TILE1) | 
+                RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, -1),
+           RdpLoadTileI(TILE1, 0, 0, 8, 8),
            RdpSetOtherModes(SOM_CYCLE_2 | SOM_Z_COMPARE | SOM_Z_WRITE | SOM_SAMPLE_BILINEAR),
-           RdpSetPrimColor(RGBA32(0xFF, 0x99, 0x99, 0xFF)),
+           RdpSetPrimColor(RGBA32(0xFF, 0xAA, 0x99, 0xFF)),
     [64] = RdpSyncFull(),
 };
 
@@ -86,7 +90,8 @@ void draw_bkg(void)
     // FIXME: these should be unnecessary
     uncached_dl_bkg[20] |= (uint32_t)checkerboard;
     uncached_dl_bkg[30] |= (uint32_t)gradient;
-    uncached_dl_bkg[45] |= (uint32_t)bbsong_data + 16;
+    uncached_dl_bkg[45] |= (uint32_t)checkerboard + 32;
+    uncached_dl_bkg[49] |= (uint32_t)bbsong_data + 16;
 
     static int count = 0;
     if (++count == 3) {

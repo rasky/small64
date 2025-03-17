@@ -42,9 +42,6 @@ void getCirclePoint(float t, float *outX, float *outY) {
 
 uint32_t mesh(void)
 {
-    xangle += 0.01f;
-    yangle += 0.01f;
-
     // Number of segments for the major (u) and minor (v) circles.
     const int numMajor = 32; // Segments along the torus' main circle.
     const int numMinor = 16; // Segments along the tube (minor circle).

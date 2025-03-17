@@ -156,6 +156,8 @@ void demo(void)
     }
 #endif
 
+    float dispTimer = -3;
+    
     while(1) {
         vi_wait_vblank();
         memset32(Z_BUFFER, (ZBUF_MAX<<16)|ZBUF_MAX, 320*240*2);
@@ -163,12 +165,19 @@ void demo(void)
 
         //uint32_t t = C0_COUNT();
 
+        xangle += 0.01f;
+        yangle += 0.015f;
         uint32_t vert_buff_end = mesh();
         ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
 
         *DP_STATUS = DP_WSTATUS_SET_XBUS;
         *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
         *DP_END = 0x30;
+
+        float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
+        ucode_set_displace(dispFactor * 0x7FFF); 
+        if(dispTimer > MM_PI*2)dispTimer = -2;
+        dispTimer += 0.01f;
 
         ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
         ucode_run();
