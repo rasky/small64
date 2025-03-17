@@ -68,8 +68,8 @@ static void vi_init(void)
 static void vi_wait_vblank(void)
 {
     while (*VI_V_CURRENT != 2) {}
-    SWAP(vi_buffer_draw, vi_buffer_show);
     *VI_ORIGIN = (uint32_t)vi_buffer_draw;
+    SWAP(vi_buffer_draw, vi_buffer_show);
 }
 
 #define AI_CALC_DACRATE(clock)      (((2 * (clock) / AI_FREQUENCY) + 1) / 2)
