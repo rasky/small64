@@ -30,11 +30,13 @@ N64_MKASSET = $(N64_ROOTDIR)/bin/mkasset
 
 N64_CFLAGS =  -march=vr4300 -mtune=vr4300 -MMD
 N64_CFLAGS += -DN64 -Os -Wall -Wno-error=deprecated-declarations -fdiagnostics-color=always
-N64_CFLAGS += -Wno-error=unused-function -ffreestanding -nostdlib -ffunction-sections -fdata-sections
+N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections
 N64_CFLAGS += -G0 # gp is not initialized (don't use it)
 N64_CFLAGS += -mabi=32 -mgp32 -mfp32 -msingle-float # Can't compile for 64bit ABI because DMEM/IMEM don't support 64-bit access
 N64_CFLAGS += -ffast-math -ftrapping-math -fno-associative-math
-N64_CLFAGS += -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=unused-value -Wno-error=unused-label -Wno-error=unused-parameter -Wno-error=unused-result
+#N64_CFLAGS += -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=unused-value -Wno-error=unused-label -Wno-error=unused-parameter -Wno-error=unused-result
+N64_CFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-value -Wno-unused-label -Wno-unused-parameter -Wno-unused-result
+#N64_CFLAGS += -ffast-math
 #N64_CFLAGS += -flto
 
 N64_ASFLAGS = -mtune=vr4300 -march=vr4300 -Wa,--fatal-warnings
@@ -62,14 +64,7 @@ all: small.z64
 build/%.o: %.c
 	@echo "    [CC] $@"
 	@mkdir -p build
-# Compile relocatable code. We need this for stage 1/2 which are relocated,
-# but in general it won't hurt for boot code. GCC MIPS doesn't have a way to do
-# this simple transformation so we do it ourselves by replacing jal/j with bal/b
-# on the assembly output of the compiler.
-	$(N64_CC) -S -c $(N64_CFLAGS) -o $@.s $<
-	$(SED) -i 's/\bjal\b/bal/g' $@.s
-	$(SED) -i 's/\bj\b/b/g' $@.s
-	$(N64_AS) $(N64_ASFLAGS) --no-warn -o $@ $@.s
+	$(N64_CC) -c $(N64_CFLAGS) -Wa,--no-warn -o $@ $<;
 
 BUILD_DIR = build
 SOURCE_DIR = .
