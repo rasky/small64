@@ -13,8 +13,7 @@
 #define AI_FREQUENCY                SONG_FREQUENCY
 
 #define FB_BUFFER_0         ((void*)0xA0100000)  // len = 320*240*2, end = 0xA0125800
-#define FB_BUFFER_1         ((void*)0xA0125800)  // len = 320*240*2, end = 0xA014B000
-#define FB_BUFFER_2         ((void*)0xA014B000)  // len = 320*240*2, end = 0xA0170800
+#define FB_BUFFER_1         ((void*)0xA0130000)  // len = 320*240*2, end = 0xA014B000
 
 #define AI_BUFFERS          ((void*)0xA0170800)
 #define AI_BUFFER_SIZE      4096
@@ -75,20 +74,20 @@ static void vi_wait_vblank(void)
 #define AI_CALC_DACRATE(clock)      (((2 * (clock) / AI_FREQUENCY) + 1) / 2)
 #define AI_CALC_BITRATE(clock)      ((AI_CALC_DACRATE(clock) / 66) > 16 ? 16 : (AI_CALC_DACRATE(clock) / 66))
 
-static int ai_buffer_offset;
+static uint32_t ai_buffer_offset;
 
 static int16_t* ai_poll(void)
 {
     if (*MI_INTERRUPT & MI_INTERRUPT_AI) {
         *AI_STATUS = AI_CLEAR_INTERRUPT;
-        return AI_BUFFERS + ai_buffer_offset;
+        return (int16_t*)ai_buffer_offset;
     }
     return 0;
 }
 
 static void ai_poll_end(void)
 {
-    *AI_DRAM_ADDR = (uint32_t)AI_BUFFERS + ai_buffer_offset;
+    *AI_DRAM_ADDR = ai_buffer_offset;
     *AI_LENGTH = AI_BUFFER_SIZE;
     ai_buffer_offset ^= AI_BUFFER_SIZE;
 }
@@ -99,7 +98,7 @@ static void ai_init(void)
     *AI_DACRATE = bitrate[get_tv_type()];
     *AI_BITRATE = 0xf;  // up to 44100; then you might need 0xe. Use AI_CALC_BITRATE to calculate the correct value
     *AI_CONTROL = 1;
-    ai_buffer_offset = 0;
+    ai_buffer_offset = (uint32_t)AI_BUFFERS;
     memset32(AI_BUFFERS, 0, AI_BUFFER_SIZE * 2);
     ai_poll_end();
 }
