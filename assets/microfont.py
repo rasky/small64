@@ -33,17 +33,27 @@ def extract_required_chars(ascii_mapping, phrase):
             required.append(char)
     return required
 
-def extract_sprite(font_img, index, cell_width=11, cell_height=17):
+def extract_sprite(font_img, index, border_w, border_h, cell_width, cell_height, transparent):
     """
     Given the index of the sprite (in grid order, left-to-right, top-to-bottom),
     extracts the corresponding cell from the font image.
     """
-    cols = 14  # The grid has 14 columns (154/11)
+    cols = font_img.width // cell_width
     col = index % cols
     row = index // cols
     x = col * cell_width
     y = row * cell_height
-    sprite = font_img.crop((x, y, x + cell_width, y + cell_height))
+    sprite = font_img.crop((x + border_w, y + border_h, x + cell_width, y + cell_height))
+    # Convert non-transparent pixels to white
+    sprite = sprite.convert("RGBA")
+    data = sprite.getdata()
+    new_data = []
+    for item in data:
+        if item != transparent:
+            new_data.append((255, 255, 255, 255))
+        else:
+            new_data.append(item)
+    sprite.putdata(new_data)
     return sprite
 
 def common_crop_bounds(sprites):
@@ -123,7 +133,7 @@ def common_crop_bounds(sprites):
     new_height = h - top_offset - bottom_offset
     return (left_offset, top_offset, new_width, new_height)
 
-def create_atlas(font_img, ascii_mapping, required_chars, cell_width=11, cell_height=17):
+def create_atlas(font_img, ascii_mapping, required_chars, border_w, border_h, cell_width, cell_height):
     """
     Creates an atlas image in a single vertical column containing only the characters
     required to write the phrase. For each required character, it extracts the sprite
@@ -133,6 +143,10 @@ def create_atlas(font_img, ascii_mapping, required_chars, cell_width=11, cell_he
     Returns the atlas image, the new cell dimensions (new_width, new_height),
     and the list of cropped sprites.
     """
+    # Fetch trasnsaprent pixel: top-left corner after border
+    font_img = font_img.convert("RGBA")
+    transparent = font_img.getpixel((border_w, border_h))
+
     sprites = []
     for char in required_chars:
         try:
@@ -140,7 +154,7 @@ def create_atlas(font_img, ascii_mapping, required_chars, cell_width=11, cell_he
         except ValueError:
             print(f"Warning: character '{char}' not found in the mapping!")
             continue
-        sprite = extract_sprite(font_img, index, cell_width, cell_height)
+        sprite = extract_sprite(font_img, index, border_w, border_h, cell_width, cell_height, transparent)
         sprites.append(sprite)
     
     # Determine common crop bounds across all sprites
@@ -207,13 +221,14 @@ def main():
     
     font_filename = sys.argv[1]
     ascii_filename = sys.argv[2]
-    phrase_filename = sys.argv[3]
+    border_w = int(sys.argv[3])
+    border_h = int(sys.argv[4])
+    cell_width = int(sys.argv[5])
+    cell_height = int(sys.argv[6])
+    phrase_filename = sys.argv[7]
 
-    # Load the font image and verify its dimensions (154x119)
+    # Load the font image
     font_img = Image.open(font_filename).convert("RGBA")
-    if font_img.size != (154, 119):
-        print("Error: The font image must be 154x119 pixels.")
-        sys.exit(1)
     
     # Load the ascii mapping and the phrase to be represented
     ascii_mapping = load_ascii_mapping(ascii_filename)
@@ -225,7 +240,7 @@ def main():
     
     # Create the atlas with the required characters, arranged in a single vertical column,
     # applying common cropping if possible.
-    atlas, new_dims, cropped_sprites = create_atlas(font_img, ascii_mapping, required_chars)
+    atlas, new_dims, cropped_sprites = create_atlas(font_img, ascii_mapping, required_chars, border_w, border_h, cell_width, cell_height)
     atlas.save("output_atlas.png")
     print("Atlas saved as output_atlas.png")
     

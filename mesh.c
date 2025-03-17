@@ -12,34 +12,6 @@ typedef struct {
 static float xangle = MM_PI/8;
 static float yangle = MM_PI/4; 
 
-void getCirclePoint(float t, float *outX, float *outY) {
-    float x, y;
-    if (t < 0.25f) {
-        // Top edge: from (1, 1) to (1, -1)
-        x = 1.0f;
-        y = 1.0f - 8.0f * t; // When t=0 => y=1, when t=0.25 => y=-1.
-    } else if (t < 0.5f) {
-        // Right edge: from (1, -1) to (-1, -1)
-        float u = t - 0.25f;
-        x = 1.0f - 8.0f * u; // When t=0.25 => x=1, when t=0.5 => x=-1.
-        y = -1.0f;
-    } else if (t < 0.75f) {
-        // Bottom edge: from (-1, -1) to (-1, 1)
-        float u = t - 0.5f;
-        x = -1.0f;
-        y = -1.0f + 8.0f * u; // When t=0.5 => y=-1, when t=0.75 => y=1.
-    } else {
-        // Left edge: from (-1, 1) to (1, 1)
-        float u = t - 0.75f;
-        x = -1.0f + 8.0f * u; // When t=0.75 => x=-1, when t=1 => x=1.
-        y = 1.0f;
-    }
-    // Normalize (x,y) to produce a point on the unit circle.
-    float len = __builtin_sqrtf(x * x + y * y);
-    *outX = x / len;
-    *outY = y / len;
-}
-
 uint32_t mesh(void)
 {
     // Number of segments for the major (u) and minor (v) circles.

@@ -3,8 +3,6 @@
 #include "rdp_commands.h"
 #include "rdpq_macros.h"
 
-#define CHAR_WIDTH  11
-#define CHAR_HEIGHT 13
 #define CHAR_SIZE   (CHAR_WIDTH * CHAR_HEIGHT)
 
 #define DRAW_CHAR() \
