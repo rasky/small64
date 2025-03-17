@@ -160,7 +160,6 @@ void demo(void)
     
     while(1) {
         vi_wait_vblank();
-        memset32(Z_BUFFER, (ZBUF_MAX<<16)|ZBUF_MAX, 320*240*2);
         draw_bkg();
 
         //uint32_t t = C0_COUNT();

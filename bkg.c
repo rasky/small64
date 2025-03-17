@@ -39,7 +39,8 @@ uint64_t dl_bkg[] = {
                 (TEX1,0,TEX0,0), (0,0,0,1),
                 (COMBINED,0,PRIM,0), (0,0,0,1)
            )),
-           RdpSetOtherModes(SOM_CYCLE_2 | SOM_RGBDITHER_BAYER | SOM_ALPHADITHER_BAYER | SOM_SAMPLE_BILINEAR),
+           RdpSetPrimDepth(0xFFFE),
+           RdpSetOtherModes(SOM_CYCLE_2 | SOM_RGBDITHER_BAYER | SOM_ALPHADITHER_BAYER | SOM_Z_WRITE | SOM_ZSOURCE_PRIM | SOM_SAMPLE_BILINEAR),
     [20] = RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, NULL, 8),
            RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, 8, 0, TILE0) | 
                 RdpSetTile_Mask(3, 3),
@@ -73,7 +74,7 @@ uint64_t dl_bkg[] = {
            RdpSetTile(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 8, 0x400, TILE1) | 
                 RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, -1),
            RdpLoadTileI(TILE1, 0, 0, 8, 8),
-           RdpSetOtherModes(SOM_CYCLE_2 | SOM_Z_COMPARE | SOM_Z_WRITE | SOM_SAMPLE_BILINEAR),
+           RdpSetOtherModes(SOM_CYCLE_2 | SOM_Z_COMPARE | SOM_Z_WRITE | SOM_ZSOURCE_PIXEL | SOM_SAMPLE_BILINEAR),
            RdpSetPrimColor(RGBA32(0xFF, 0xAA, 0x99, 0xFF)),
     [64] = RdpSyncFull(),
 };

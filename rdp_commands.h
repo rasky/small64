@@ -100,6 +100,9 @@
 #define RdpSetPrimColor(color) \
     (((cast64(0x3a))<<56) | (uint32_t)(color))
 
+#define RdpSetPrimDepth(depth) \
+    (((cast64(0x2e))<<56) | ((uint32_t)(depth) << 16))
+
 #define RdpSetEnvColor(color) \
     (((cast64(0x3b))<<56) | (uint32_t)(color))
 
