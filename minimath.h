@@ -10,15 +10,9 @@ static float random(void)
     return (*SP_PC & 0xFFF) * (1.0f / 4095.0f);
 }
 
-__attribute__((const))
-static float remf(float x, int y)
-{
-    int ix = (int)x;
-    return x - ix + (ix % y);
-}
-
 static const float MM_PI            = 3.14159274e+00f;
 
+__attribute__((const))
 static inline float mm_floorf(float x) {
     float y, yint;
     __asm ("floor.w.s  %0,%1" : "=f"(yint) : "f"(x));
@@ -26,6 +20,7 @@ static inline float mm_floorf(float x) {
     return y;
 }
 
+__attribute__((const))
 static inline float mm_truncf(float x) {
     /* Notice that trunc.w.s is also emitted by the compiler when casting a
      * float to int, but in this case we want a floating point result anyway,
@@ -35,8 +30,23 @@ static inline float mm_truncf(float x) {
     __asm ("cvt.s.w  %0,%1" : "=f"(y) : "f"(yint));
     return y;
 }
+
+__attribute__((const))
 static inline float mm_fmodf(float x, float y) {
     return x - mm_truncf(x * (1.0f / y)) * y;
+}
+
+// __attribute__((const))
+// static float mm_remf(float x, float y)
+// {
+//     return x - y * mm_floorf(x / y);
+// }
+
+__attribute__((const))
+static float mm_remf(float x, int y)
+{
+    int ix = (int)x;
+    return x - ix + (ix % y);
 }
 
 #if 0
@@ -74,12 +84,14 @@ static float mm_cosf(float x) {
 #define mm_cosf(x)   (__builtin_constant_p(x) ? __builtin_cosf(x) : mm_cosf(x))
 #define mm_sinf(x)   (__builtin_constant_p(x) ? __builtin_sinf(x) : mm_sinf(x))
 
+__attribute__((const))
 static int mm_sin_s8(int s) {
   // Note: using a lookup table created during runtime is more code
   // even though we would avoid an index to float mapping here
   return mm_sinf(s * (MM_PI / 128.0f)) * 0x7F;
 }
 
+__attribute__((const))
 static int mm_cos_s8(int s) {
   return mm_sin_s8(s + 64);
 }
