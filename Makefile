@@ -102,7 +102,14 @@ build/stage12.bin: build/small.elf
 	else \
 		$(UPKR) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
 		$(UPKR) --heatmap --parity 4 $@; \
+		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 | head -n 10; \
 	fi
+
+heatmap: build/heatmap.html
+
+build/heatmap.html: build/stage12.bin
+	tools/heatmap.py --heatmap build/stage12.heatmap --html build/small.elf .text.stage1 .text.stage2 >$@
+	open $@
 
 # Build final binary with compressed stages
 %.z64: build/small.elf small.2.ld build/stage12.bin
@@ -124,4 +131,4 @@ clean:
 
 -include $(wildcard build/*.d)
 
-.PHONY: all disasm run
+.PHONY: all disasm run heatmap
