@@ -10,6 +10,7 @@ def main():
     parser.add_argument("input_file", help="Input binary file")
     parser.add_argument("output_file", nargs="?", help="Output C file (if omitted, output to stdout)")
     parser.add_argument("-n", "--name", help="Custom name for the generated variables")
+    parser.add_argument("-p", "--padding", help="Pads data to a multiple of the specified size, filled with zeros")
     parser.add_argument("-a", "--aligned", type=int,
                         help="Alignment factor for the GCC attribute (e.g. 16 for aligned(16))")
     
@@ -31,6 +32,10 @@ def main():
             data = f.read()
     except Exception as e:
         sys.exit(f"Error reading file {input_file}: {e}")
+
+    if args.padding:
+        padding = int(args.padding, 10)
+        data += bytes([0x00] * (padding - len(data) % padding))
 
     # Build the C source.
     output_lines = []

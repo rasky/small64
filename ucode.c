@@ -10,14 +10,15 @@
  */
 static inline void ucode_init()
 {
-  // DMAing too much doesn't matter, but we can skip any size calculation
-  const uint32_t IMEM_SIZE = 0x1000-1;
-
   // shift values usually set by rspq in libdragon
   uint32_t shift_val = 0x08040201;
   SP_DMEM[0] = shift_val << 4;
   SP_DMEM[1] = shift_val;
-  rsp_dma_from_rdram((void*)0x1000, rsp_code, IMEM_SIZE);
+
+  // note: rsp_code_len is in bytes and padded
+ for(int i=0; i<rsp_code_len/4; ++i) {
+  SP_IMEM[i] = ((uint32_t*)(rsp_code))[i];
+ }
 }
 
 /**
