@@ -12,6 +12,7 @@
  */
 #include "minidragon.h"
 #include "debug.h"
+#include "rdram.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -305,7 +306,7 @@ static int rdram_calibrate_current(uint16_t chip_id)
     if (!target_cc)
         return 0;
     // debugf("rdram_calibrate_current: target_cc ", target_cc);
-
+#if RDRAM_AUTO_CURRENT
     // Now we want to configure the automatic mode. Unfortunately, the cc values
     // written in automatic mode have a different scale compared to manual mode.
     int minerr = 0;
@@ -326,6 +327,9 @@ static int rdram_calibrate_current(uint16_t chip_id)
 
     // debugf("rdram_calibrate_current: auto_cc ", autocc, minerr);
     return autocc;
+#else
+    return target_cc;
+#endif
 }
 
 void rdram_init(void)
@@ -396,8 +400,7 @@ void rdram_init(void)
             break;
         }
         int target_cc = weighted_cc / NUM_CALIBRATION_ATTEMPTS;
-        rdram_reg_w_mode(chip_id, true, target_cc);
-   
+        rdram_reg_w_mode(chip_id, RDRAM_AUTO_CURRENT ? true : false, target_cc);
         // Now that we have calibrated the output current of the chip, we are able
         // to actually read data from it. Read the manufacturer code and the device type.
         rdram_reg_devicetype_t t = rdram_reg_r_devicetype(chip_id);
