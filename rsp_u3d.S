@@ -94,7 +94,7 @@
     .align 3
     MATRIX: .ds.b 24
     .align 4
-    RSPQ_DMEM_BUFFER: .ds.b 128
+    RSPQ_DMEM_BUFFER: .ds.b 512
     .align 4
     TRI_BUFF: .ds.b 192
     .align 4

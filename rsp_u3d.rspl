@@ -18,7 +18,7 @@ state
   
   alignas(8) u16 MATRIX[3][4]; // fractional matrix for scaling + rotation
 
-  alignas(16) u8 RSPQ_DMEM_BUFFER[128];
+  alignas(16) u8 RSPQ_DMEM_BUFFER[512];
 
   /**
    * 
