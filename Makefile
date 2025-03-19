@@ -82,8 +82,7 @@ build/rsp_u3d.inc: rsp_u3d.S
 	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
 	$(N64_OBJCOPY) -O binary -j .data $@.elf $@.data.bin
 	$(N64_SIZE) -G $@.elf
-	./tools/xxd.py -n rsp_code -p 1024 -a 8 $@.text.bin >$@
-	./tools/xxd.py -n rsp_data -a 8 $@.data.bin >>$@
+	./tools/ucode_to_inc.py $@.data.bin $@.text.bin build/rsp_u3d.inc
 	rm $@.elf $@.text.bin $@.data.bin
 
 # Build initial binary with all stages (uncompressed)

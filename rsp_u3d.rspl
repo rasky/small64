@@ -10,7 +10,7 @@ include "rsp.inc"
 
 state 
 {
-  u8 SHIFT_DATA[8];
+  u8 SHIFT_DATA[8] = {0x80, 0x40, 0x20, 0x10, 0x08, 0x04, 0x02, 0x01};
   
   u32 VERTEX_ADDR;
   u32 VERTEX_ADDR_END;

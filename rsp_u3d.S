@@ -84,7 +84,7 @@
 
   RSPQ_BeginSavedState
     STATE_MEM_START:
-    SHIFT_DATA: .ds.b 8
+    SHIFT_DATA: .byte 128, 64, 32, 16, 8, 4, 2, 1
     .align 2
     VERTEX_ADDR: .ds.b 4
     .align 2

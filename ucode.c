@@ -10,14 +10,10 @@
  */
 static inline void ucode_init()
 {
-  // shift values usually set by rspq in libdragon
-  uint32_t shift_val = 0x08040201;
-  SP_DMEM[0] = shift_val << 4;
-  SP_DMEM[1] = shift_val;
-
-  // note: rsp_code_len is in bytes and padded
- for(int i=0; i<rsp_code_len/4; ++i) {
-  SP_IMEM[i] = ((uint32_t*)(rsp_code))[i];
+  // Loads data & code into DMEM/IMEM in one go
+  // the data section is zero padded to allow for this
+ for(int i=0; i<sizeof(rsp_data_code)/4; ++i) {
+  SP_DMEM[i] = ((uint32_t*)(rsp_data_code))[i];
  }
 }
 
