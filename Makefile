@@ -112,7 +112,7 @@ build/heatmap.html: build/stage12.bin
 	open $@
 
 # Build final binary with compressed stages
-%.z64: build/small.elf small.2.ld build/stage12.bin
+%.z64: build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS:%.c=build/%.o)
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
@@ -123,11 +123,14 @@ build/heatmap.html: build/stage12.bin
 	$(N64_SIZE) -G build/small.compressed.elf
 	$(N64_OBJCOPY) -O binary build/small.compressed.elf $@
 
+run: small.z64
+	sc64deployer upload --direct small.z64 && sc64deployer debug --isv 0x3FF0000
+
 disasm: build/small.elf
 	$(N64_OBJDUMP) -D build/small.elf
 
 clean:
-	rm -rf build small.z64
+	rm -rf build small.z64 run
 
 -include $(wildcard build/*.d)
 

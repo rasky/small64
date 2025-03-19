@@ -24,9 +24,12 @@ $(BUILD_DIR)/rsp_u3d.inc: rsp_u3d.S
 small64_debug.z64: N64_ROM_TITLE="Small64 (Debug)"
 $(BUILD_DIR)/small64_debug.elf: $(src:%.c=$(BUILD_DIR)/%.o) $(asm:%.S=$(BUILD_DIR)/%.o)
 
+run: small64_debug.z64
+	sc64deployer upload --direct small64_debug.z64 && sc64deployer debug
+
 clean:
 	rm -rf $(BUILD_DIR) small64_debug.z64
 
 -include $(wildcard $(BUILD_DIR)/*.d)
 
-.PHONY: all clean
+.PHONY: all clean run
