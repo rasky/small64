@@ -176,18 +176,25 @@ static void rdram_reg_w_deviceid(int chip_id, uint16_t new_chip_id)
     rdram_reg_w(chip_id, RDRAM_REG_DEVICE_ID, value);
 }
 
+static const uint8_t shifts[6] = { 30, 22, 14, 31, 23, 15};
+
 static void rdram_reg_r_mode(int nchip, int *cci)
 {
     uint32_t value = rdram_reg_r(nchip, RDRAM_REG_MODE);
 
     if (cci) {
-        uint8_t cc0 = (value >> 30) &  1;
-        uint8_t cc1 = (value >> 21) &  2;
-        uint8_t cc2 = (value >> 12) &  4;
-        uint8_t cc3 = (value >> 28) &  8;
-        uint8_t cc4 = (value >> 19) & 16;
-        uint8_t cc5 = (value >> 10) & 32;
-        *cci = (cc0 | cc1 | cc2 | cc3 | cc4 | cc5);
+        *cci = 0;
+        for (int i=0; i<6; i++) {
+            *cci |= (BIT(value, shifts[i]) << i);
+        }
+
+        // uint8_t cc0 = (value >> 30) &  1;
+        // uint8_t cc1 = (value >> 21) &  2;
+        // uint8_t cc2 = (value >> 12) &  4;
+        // uint8_t cc3 = (value >> 28) &  8;
+        // uint8_t cc4 = (value >> 19) & 16;
+        // uint8_t cc5 = (value >> 10) & 32;
+        // *cci = (cc0 | cc1 | cc2 | cc3 | cc4 | cc5);
     }
 }
 
@@ -217,7 +224,12 @@ static int rdram_reg_w_mode(int nchip, bool auto_current, uint8_t cci)
 
     uint32_t value = DEVICE_EN | AUTO_SKIP | FR;
     if (auto_current) value |= CURRENT_CONTROL_AUTO;
-    value |= CCVALUE(cc);
+
+    const uint8_t *sh = shifts;
+    while (cc) {
+        value |= (cc & 1) << *sh;
+        cc >>= 1; sh++;
+    }
 
     rdram_reg_w(nchip, RDRAM_REG_MODE, value);
 
