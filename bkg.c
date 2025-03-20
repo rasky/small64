@@ -22,7 +22,7 @@ uint8_t gradient[8] = {
     0xFF, 0xEE, 0xDD, 0xBB, 0x99, 0x77, 0x77, 0x77,
 };
 
-uint64_t dl_bkg[] = {
+static RdpList dl_bkg[] = {
     [0] = RdpSyncPipe(),
     [1] = RdpSetColorImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_16BIT, 320, 0),
     [2] = RdpSetClippingI(0, 0, 320, 240),
@@ -79,7 +79,6 @@ uint64_t dl_bkg[] = {
     [64] = RdpSyncFull(),
 };
 
-
 #define dl_bkg_cnt  (sizeof(dl_bkg) / sizeof(uint64_t))
 
 void draw_bkg(void)
@@ -101,5 +100,4 @@ void draw_bkg(void)
     }
 
     dp_send(dl_bkg, dl_bkg+dl_bkg_cnt);
-    dp_wait();
 }

@@ -7,7 +7,22 @@ static float random(void)
     // static uint32_t seed = 0x123456;
     // seed = seed * 1664525 + 1013904223;
     // return (float)(seed & 0x7FFFFFFF) / 0x7FFFFFFF;
-    return (*SP_PC & 0xFFF) * (1.0f / 4095.0f);
+    return (C0_COUNT() & 0xFFF) * (1.0f / 4095.0f);
+}
+
+__attribute__((noinline))
+static uint32_t random_u32(void)
+{
+    static uint32_t state = 1;
+    state ^= state << 13;
+    state ^= state >> 17;
+    state ^= state << 5;
+    return state;
+}
+
+static inline uint8_t random_u8(void)
+{
+    return random_u32() & 0xFF;
 }
 
 static const float MM_PI            = 3.14159274e+00f;
@@ -31,16 +46,17 @@ static inline float mm_truncf(float x) {
     return y;
 }
 
-__attribute__((const))
-static inline float mm_fmodf(float x, float y) {
-    return x - mm_truncf(x * (1.0f / y)) * y;
-}
-
 // __attribute__((const))
-// static float mm_remf(float x, float y)
-// {
-//     return x - y * mm_floorf(x / y);
+// static inline float mm_fmodf(float x, float y) {
+//     return x - mm_truncf(x * (1.0f / y)) * y;
 // }
+
+__attribute__((const))
+static float mm_fmodf(float x, float y)
+{
+    float q = mm_truncf(x / y);
+    return x - q * y;
+}
 
 __attribute__((const))
 static float mm_remf(float x, int y)
@@ -94,6 +110,17 @@ static int mm_sin_s8(int s) {
 __attribute__((const))
 static int mm_cos_s8(int s) {
   return mm_sin_s8(s + 64);
+}
+
+#define LN2             0.693147f
+#define LN3             1.098612f
+#define LN03            0.105360f
+
+__attribute__((const))
+static float pow_approx(float ln, float n) {
+    float x = n * ln;
+    float result = 1.0f + x + (x * x) / 2.0f + (x * x * x) / 6.0f;
+    return result;
 }
 
 #endif

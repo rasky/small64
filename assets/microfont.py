@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 from PIL import Image
+import argparse
 
 def load_ascii_mapping(filename):
     """
@@ -12,13 +13,14 @@ def load_ascii_mapping(filename):
     content = content.replace("\n", "").replace("\r", "")
     return list(content)
 
-def load_phrase(filename):
+def load_phrases(filename):
     """
-    Reads the phrase.txt file and returns the contained string.
+    Reads the phrases files and returns each line
     """
     with open(filename, "r", encoding="utf-8") as f:
-        phrase = f.read()
-    return phrase
+        phrases = f.readlines()
+    phrases = [phrase.strip("\n") for phrase in phrases]
+    return phrases
 
 def extract_required_chars(ascii_mapping, phrase):
     """
@@ -218,24 +220,38 @@ def main():
     if len(sys.argv) < 4:
         print("Usage: python script.py font.png ascii.txt phrase.txt")
         sys.exit(1)
-    
-    font_filename = sys.argv[1]
-    ascii_filename = sys.argv[2]
-    border_w = int(sys.argv[3])
-    border_h = int(sys.argv[4])
-    cell_width = int(sys.argv[5])
-    cell_height = int(sys.argv[6])
-    phrase_filename = sys.argv[7]
+
+    # Parse command-line arguments using argparse.
+    parser = argparse.ArgumentParser(description="Generate a sprite atlas and binary files from a font image and text phrases.")
+    parser.add_argument("font", help="Path to the font image (PNG format).")
+    parser.add_argument("ascii", help="Path to the ASCII mapping file.")
+    parser.add_argument("border_w", type=int, help="Width of the border around each character cell.")
+    parser.add_argument("border_h", type=int, help="Height of the border around each character cell.")
+    parser.add_argument("cell_width", type=int, help="Width of each character cell.")
+    parser.add_argument("cell_height", type=int, help="Height of each character cell.")
+    parser.add_argument("--phrases", type=str, required=True, help="Text file containing phrases to convert (one per line).")
+
+    args = parser.parse_args()
+
+    font_filename = args.font
+    ascii_filename = args.ascii
+    border_w = args.border_w
+    border_h = args.border_h
+    cell_width = args.cell_width
+    cell_height = args.cell_height
+    phrases_filename = args.phrases
 
     # Load the font image
     font_img = Image.open(font_filename).convert("RGBA")
     
     # Load the ascii mapping and the phrase to be represented
     ascii_mapping = load_ascii_mapping(ascii_filename)
-    phrase = load_phrase(phrase_filename)
+
+    # Load all the phrases
+    phrases = load_phrases(phrases_filename)
     
     # Extract the unique characters required for the phrase (excluding whitespace)
-    required_chars = extract_required_chars(ascii_mapping, phrase)
+    required_chars = extract_required_chars(ascii_mapping, "".join(phrases))
     print("Required characters:", required_chars)
     
     # Create the atlas with the required characters, arranged in a single vertical column,
@@ -243,28 +259,82 @@ def main():
     atlas, new_dims, cropped_sprites = create_atlas(font_img, ascii_mapping, required_chars, border_w, border_h, cell_width, cell_height)
     atlas.save("output_atlas.png")
     print("Atlas saved as output_atlas.png")
-    
-    # Create the binary file representing the phrase:
-    # For each character (0 for whitespace, otherwise the 1-based index in the atlas)
-    phrase_data = create_phrase_binary(phrase, required_chars)
-    with open("phrase.bin", "wb") as f:
-        f.write(phrase_data)
-    print("Binary phrase file saved as phrase.bin")
-    
-    # Additional step:
-    # For each cropped sprite, compute its width as the index of the rightmost non-transparent pixel (+1)
-    # Then, create an output binary file that contains:
-    #   - The first byte: the grid width (new_width) to be used as the spacing dimension.
-    #   - The following bytes: the widths of all characters in the atlas, one per byte.
-    widths = []
-    grid_spacing = new_dims[0]  # Use new_width as the spacing dimension
-    widths.append(grid_spacing - 3)
-    for sprite in cropped_sprites:
-        w = compute_sprite_width(sprite)
-        widths.append(w+1)
-    with open("widths.bin", "wb") as f:
-        f.write(bytearray(widths))
-    print("Widths file saved as widths.bin")
+
+    # Create an output file which is a C source file. Encode the atlas as an array of
+    # bytes where each byte encodes 2 pixels (4 bits each). Each pixel is either 0 or 0xF.
+    with open("font.c.inc", "w") as f:
+        assert(new_dims[0] % 2 == 0)  # Ensure the width is even
+        char_size = ((new_dims[0]+1)//2 * new_dims[1] + 7) // 8 * 8
+        padding_size = char_size - ((new_dims[0]+1)//2 * new_dims[1])
+        f.write("#define CHAR_WIDTH %d\n" % new_dims[0])
+        f.write("#define CHAR_HEIGHT %d\n" % new_dims[1])
+        f.write("#define CHAR_SIZE %d\n" % char_size)
+        f.write("__attribute__((aligned(8)))\n")
+        f.write(f"const unsigned char font[] = {{\n")
+        data = atlas.convert("L").tobytes()
+        for i in range(0, len(data), 2):
+            if i % (new_dims[0]) == 0:
+                f.write("    ")
+            # Get two pixels and encode them into a single byte
+            pixel1 = 0xF if data[i] > 0 else 0x0
+            pixel2 = 0xF if (i + 1 < len(data) and data[i + 1] > 0) else 0x0
+            byte = (pixel1 << 4) | pixel2
+            f.write(f"0x{byte:02X}, ")
+            if (i+2) % new_dims[0] == 0:
+                f.write("\n")
+                if (i+2) % (new_dims[0] * new_dims[1]) == 0:
+                    if padding_size > 0:
+                        f.write("    ")
+                        for _ in range(padding_size):
+                            f.write("0x00, ")
+                        f.write("  // padding\n")
+                    f.write("\n")
+        f.write("};\n")
+
+        # Additional step:
+        # For each cropped sprite, compute its width as the index of the rightmost non-transparent pixel (+1)
+        # Then, create an output array that contains:
+        #   - The first byte: the grid width (new_width) to be used as the spacing dimension.
+        #   - The following bytes: the widths of all characters in the atlas, one per byte.
+        widths = []
+        widths.append(new_dims[0])  # Use new_width as the spacing dimension
+        for sprite in cropped_sprites:
+            w = compute_sprite_width(sprite)
+            widths.append(w+1)
+
+        f.write(f"const unsigned char char_widths[] = {{\n")
+        for i, width in enumerate(widths):
+            if i % 16 == 0:
+                f.write("    ")
+            f.write(f"0x{width:02X}, ")
+            if (i + 1) % 16 == 0:
+                f.write("\n")
+        f.write("};\n")
+
+        # Create a single array with binary data for all the phrases, concatenating them.
+        f.write("const unsigned char phrases[] = {\n")
+        for phrase in phrases:
+            phrase_data = create_phrase_binary(phrase, required_chars)
+            f.write(f"    // {phrase}\n")
+            for i, byte in enumerate(phrase_data):
+                if i % 16 == 0:
+                    f.write("    ")
+                f.write(f"0x{byte:02X}, ")
+                if (i + 1) % 16 == 0:
+                    f.write("\n")
+            f.write("\n")
+        f.write("};\n")
+        
+        # Create an array with offsets for each phrase
+        offset = 0
+        f.write(f"const unsigned short phrases_off[] = {{\n")
+        for phrase in phrases:
+            f.write(f"    {offset}, // {phrase}\n")
+            offset += len(phrase)
+        f.write(f"    {offset}\n");
+        f.write("};\n")
+
+    print("C source file saved as font.c.inc")
     
 if __name__ == "__main__":
     main()

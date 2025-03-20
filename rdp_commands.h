@@ -24,6 +24,8 @@
 #define TILE6       6
 #define TILE7       7
 
+#define RdpList __attribute__((aligned(16))) uint64_t
+
 // When compiling C/C++ code, 64-bit immediate operands require explicit
 // casting to a 64-bit type
 #ifdef __ASSEMBLER__
@@ -112,98 +114,10 @@
 #define RdpSetFogColor(color) \
     (((cast64(0x38))<<56) | (uint32_t)(color))
 
-#define _NUM_ARGS2(X,X64,X63,X62,X61,X60,X59,X58,X57,X56,X55,X54,X53,X52,X51,X50,X49,X48,X47,X46,X45,X44,X43,X42,X41,X40,X39,X38,X37,X36,X35,X34,X33,X32,X31,X30,X29,X28,X27,X26,X25,X24,X23,X22,X21,X20,X19,X18,X17,X16,X15,X14,X13,X12,X11,X10,X9,X8,X7,X6,X5,X4,X3,X2,X1,N,...) N
-#define NUM_ARGS(...) _NUM_ARGS2(0, __VA_ARGS__ ,64,63,62,61,60,59,58,57,56,55,54,53,52,51,50,49,48,47,46,45,44,43,42,41,40,39,38,37,36,35,34,33,32,31,30,29,28,27,26,25,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0)
-
-#define _ORBITS1(a)     cast64((a))
-#define _ORBITS2(a,b)   ((a) | (b))
-#define _ORBITS3(a,...) ((a) | _ORBITS2(__VA_ARGS__))
-#define _ORBITS4(a,...) ((a) | _ORBITS3(__VA_ARGS__))
-#define _ORBITS_MULTI3(N, ...) _ORBITS ## N (__VA_ARGS__)
-#define _ORBITS_MULTI2(N, ...) _ORBITS_MULTI3(N, __VA_ARGS__)
-#define _ORBITS_MULTI(...)  _ORBITS_MULTI2(NUM_ARGS(__VA_ARGS__), __VA_ARGS__)
-
-#define COMB_RGB_SUBA_COMBINED  cast64(0)
-#define COMB_RGB_SUBA_TEX0      cast64(1)
-#define COMB_RGB_SUBA_TEX1      cast64(2)
-#define COMB_RGB_SUBA_PRIM      cast64(3)
-#define COMB_RGB_SUBA_SHADE     cast64(4)
-#define COMB_RGB_SUBA_ENV       cast64(5)
-#define COMB_RGB_SUBA_ONE       cast64(6)
-#define COMB_RGB_SUBA_NOISE     cast64(7)
-#define COMB_RGB_SUBA_ZERO      cast64(8)
-
-#define COMB_RGB_SUBB_COMBINED  cast64(0)
-#define COMB_RGB_SUBB_TEX0      cast64(1)
-#define COMB_RGB_SUBB_TEX1      cast64(2)
-#define COMB_RGB_SUBB_PRIM      cast64(3)
-#define COMB_RGB_SUBB_SHADE     cast64(4)
-#define COMB_RGB_SUBB_ENV       cast64(5)
-#define COMB_RGB_SUBB_KEYCENTER cast64(6)
-#define COMB_RGB_SUBB_K4        cast64(7)
-#define COMB_RGB_SUBB_ZERO      cast64(8)
-
-#define COMB_RGB_MUL_COMBINED       cast64(0)
-#define COMB_RGB_MUL_TEX0           cast64(1)
-#define COMB_RGB_MUL_TEX1           cast64(2)
-#define COMB_RGB_MUL_PRIM           cast64(3)
-#define COMB_RGB_MUL_SHADE          cast64(4)
-#define COMB_RGB_MUL_ENV            cast64(5)
-#define COMB_RGB_MUL_KEYSCALE       cast64(6)
-#define COMB_RGB_MUL_COMBINED_ALPHA cast64(7)
-#define COMB_RGB_MUL_TEX0_ALPHA     cast64(8)
-#define COMB_RGB_MUL_TEX1_ALPHA     cast64(9)
-#define COMB_RGB_MUL_PRIM_ALPHA     cast64(10)
-#define COMB_RGB_MUL_SHADE_ALPHA    cast64(11)
-#define COMB_RGB_MUL_ENV_ALPHA      cast64(12)
-#define COMB_RGB_MUL_LOD_FRAC       cast64(13)
-#define COMB_RGB_MUL_PRIM_LOD_FRAC  cast64(14)
-#define COMB_RGB_MUL_K5             cast64(15)
-#define COMB_RGB_MUL_ZERO           cast64(16)
-
-#define COMB_RGB_ADD_COMBINED  cast64(0)
-#define COMB_RGB_ADD_TEX0      cast64(1)
-#define COMB_RGB_ADD_TEX1      cast64(2)
-#define COMB_RGB_ADD_PRIM      cast64(3)
-#define COMB_RGB_ADD_SHADE     cast64(4)
-#define COMB_RGB_ADD_ENV       cast64(5)
-#define COMB_RGB_ADD_ONE       cast64(6)
-#define COMB_RGB_ADD_ZERO      cast64(7)
-
-#define COMB_ALPHA_ADDSUB_COMBINED  cast64(0)
-#define COMB_ALPHA_ADDSUB_TEX0      cast64(1)
-#define COMB_ALPHA_ADDSUB_TEX1      cast64(2)
-#define COMB_ALPHA_ADDSUB_PRIM      cast64(3)
-#define COMB_ALPHA_ADDSUB_SHADE     cast64(4)
-#define COMB_ALPHA_ADDSUB_ENV       cast64(5)
-#define COMB_ALPHA_ADDSUB_ONE       cast64(6)
-#define COMB_ALPHA_ADDSUB_ZERO      cast64(7)
-
-#define COMB_ALPHA_MUL_LOD_FRAC         cast64(0)
-#define COMB_ALPHA_MUL_TEX0             cast64(1)
-#define COMB_ALPHA_MUL_TEX1             cast64(2)
-#define COMB_ALPHA_MUL_PRIM             cast64(3)
-#define COMB_ALPHA_MUL_SHADE            cast64(4)
-#define COMB_ALPHA_MUL_ENV              cast64(5)
-#define COMB_ALPHA_MUL_PRIM_LOD_FRAC    cast64(6)
-#define COMB_ALPHA_MUL_ZERO             cast64(7)
-
-#define Comb0_Rgb(suba, subb, mul, add) \
-    ((COMB_RGB_SUBA_ ## suba)<<52) | ((COMB_RGB_SUBB_ ## subb)<<28) | ((COMB_RGB_MUL_ ## mul)<<47) | ((COMB_RGB_ADD_ ## add)<<15)
-#define Comb1_Rgb(suba, subb, mul, add) \
-    ((COMB_RGB_SUBA_ ## suba)<<37) | ((COMB_RGB_SUBB_ ## subb)<<24) | ((COMB_RGB_MUL_ ## mul)<<32) | ((COMB_RGB_ADD_ ## add)<<6)
-#define Comb0_Alpha(suba, subb, mul, add) \
-    ((COMB_ALPHA_ADDSUB_ ## suba)<<44) | ((COMB_ALPHA_ADDSUB_ ## subb)<<12) | ((COMB_ALPHA_MUL_ ## mul)<<41) | ((COMB_ALPHA_ADDSUB_ ## add)<<9)
-#define Comb1_Alpha(suba, subb, mul, add) \
-    ((COMB_ALPHA_ADDSUB_ ## suba)<<21) | ((COMB_ALPHA_ADDSUB_ ## subb)<<3) | ((COMB_ALPHA_MUL_ ## mul)<<18) | ((COMB_ALPHA_ADDSUB_ ## add)<<0)
-
-// RDP command to configure the color combiner. Pass to this macro
-// up to 4 Comb* macros as arguments. For instance:
-//    RdpSetCommand(Comb1_Rgb(TEX0, TEX1, SHADE, ONE))
-// Remember that in 1-cycle mode, you need to use Comb1.
-#define RdpSetCombine(...) \
-    ((cast64(0x3C)<<56) | _ORBITS_MULTI(__VA_ARGS__))
-
+// RDP command to configure the color combiner. Use rdpq_macros
+// like RDPQ_COMBINER1 or RDPQ_COMBINER2 to create the argument.
+#define RdpSetCombine(cc) \
+    ((cast64(0x3C)<<56) | cc)
 
 #define SOM_CYCLE_1    ((cast64(0))<<52)
 #define SOM_CYCLE_2    ((cast64(1))<<52)
@@ -253,133 +167,31 @@
 
 #define RdpSyncFull() \
     (cast64(0x29)<<56)
+
+#if 1
+
+// RDP syncs are just wait states. For a 4K, it's better to emit
+// sequences of zeros that will be compressed rather than using the specific
+// opcode.
+#define RdpSyncLoad() \
+    0,0,0,0,0,0,0,0, \
+    0,0,0,0,0,0,0,0, \
+    0,0,0,0,0,0,0,0,0
+#define RdpSyncPipe() \
+    RdpSyncLoad(), \
+    RdpSyncLoad()
+#define RdpSyncTile() \
+    RdpSyncLoad(), \
+    0,0,0,0,0,0,0,0
+#else
 #define RdpSyncLoad() \
     (cast64(0x26)<<56)
 #define RdpSyncPipe() \
     (cast64(0x27)<<56)
 #define RdpSyncTile() \
     (cast64(0x28)<<56)
-
-/**********************************************************
- * Mid-level macros
- **********************************************************/
-
-#define RDP_AUTO_TMEM_SLOT(n)   (-(n))
-#define RDP_AUTO_PITCH          (-1)
-
-#define RDP_NUM_SLOTS_TILE4BPP(w, h)   (0x800 / ((w)*(h)/2))
-#define RDP_NUM_SLOTS_PALETTE16        16
-
-/**
- * MRdpLoadTex4bpp - Display list for loading a 4bpp texture into TMEM
- *
- * @param tidx          Tile ID (0-7)
- * @param rdram_addr    Address of the texture in RDRAM
- * @param width         Width of the texture in pixels
- * @param height        Height of the texture in pixels
- * @param pitch         Pitch of the texture in RDRAM in bytes, 
- *                      or RDP_AUTO_PITCH in case the texture is linear in memory.
- * @param tmem_addr     Address of TMEM where to load the texture,
- *                      or RDP_AUTO_TMEM_SLOT(n) to load the texture in the Nth
- *                      available slot for textures of this size.
- * @param tmem_pitch    Pitch of the texture in TMEM in bytes,
- *                      or RDP_AUTO_PITCH to store the texture linearly.
- *
- * @note RDP_AUTO_TMEM_SLOT(n) allow to allocate TMEM using slots of fixed size.
- *       The slot size is calculated given the texture width / height. You can
- *       use RDP_NUM_SLOTS_TILE4BPP to calculate how many slots are available
- *       for a given texture size. If you need to load textures of different
- *       sizes, RDP_AUTO_TMEM_SLOT cannot be used, and TMEM addresses must
- *       be calculated manually.
- */
-#ifndef __ASSEMBLER__
-    #define MRdpLoadTex4bpp(tidx, rdram_addr, width, height, pitch, tmem_addr, tmem_pitch) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, (tmem_pitch) < 0 ? (width)/8 : tmem_pitch/8, (tmem_addr) < 0 ? -(tmem_addr) * (width)*(height)/2/8 : tmem_addr, tidx), \
-        RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, rdram_addr, (pitch) < 0 ? (width)/2 : (pitch)), \
-        RdpLoadTileI(tidx, 0, 0, (width)/2, (height))
-#else
-    #define MRdpLoadTex4bpp_Slot_Autopitch(tidx, rdram_addr, width, height, tmem_addr) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, (width)/8, -(tmem_addr) * (width)*(height)/2/8, tidx), \
-        RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_8BIT, rdram_addr, (width)/2), \
-        RdpLoadTileI(tidx, 0, 0, (width)/2, (height))
-#endif
-
-/**
- * MRdpLoadPalette16 - Display list for loading a 16-color palette into TMEM
- *
- * @param tid           Tile ID (0-7)
- * @param rdram_addr    Address of the palette in RDRAM
- * @param tmem_addr     Address of the palette in TMEM,
- *                      or RDP_AUTO_TMEM_SLOT(n) to load the palette into the Nth
- *                      available slot for palettes of 16 colors.
- *
- * @note The maximum number of 16-bit palettes that can be stored in TMEM is
- * RDRDP_NUM_SLOTS_PALETTE16 (16).
- *
- */
-#ifndef __ASSEMBLER__
-    #define MRdpLoadPalette16(tidx, rdram_addr, tmem_addr) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_4BIT, 16, ((tmem_addr) <= 0 ? (0x800 + -(tmem_addr)*(16*2*4)) : tmem_addr)/8, tidx), \
-        RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_16BIT, rdram_addr, 16), \
-        RdpLoadTlut(tidx, 0, 15)
-#else
-    #define MRdpLoadPalette16_Addr(tidx, rdram_addr, tmem_addr) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_4BIT, 16, tmem_addr/8, tidx), \
-        RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_16BIT, rdram_addr, 16), \
-        RdpLoadTlut(tidx, 0, 15)
-    #define MRdpLoadPalette16_Slot(tidx, rdram_addr, slot) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_4BIT, 16, (0x800 + -(slot)*(16*2*4))/8, tidx), \
-        RdpSetTexImage(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_16BIT, rdram_addr, 16), \
-        RdpLoadTlut(tidx, 0, 15)
 #endif
 
 
-/**
- * MRdpSetTile4bpp - Display list for configure a tile ID to draw a 4bpp texture
- *
- * @param tidx             Tile ID (0-7)
- * @param tmem_tex_addr    Address in TMEM of the texture, or RDP_AUTO_TMEM_SLOT
- *                         to select the nth slot for textures of this size.
- * @param tmem_tex_pitch   Pitch in TMEM of the texture in bytes, or RDP_AUTO_PITCH
- *                         if the texture is stored linearly.
- * @param tmem_pal_addr    Address in TMEM of the palette, or RDP_AUTO_TMEM_SLOT
- *                         to select the nth available palette.
- * @param width            Width of the texture in pixels
- * @param height           Height of the texture in pixels
- *
- * @note You can load TMEM using MRdpLoadTile4bpp and MRdpLoadPalette16.
- */
 
-#ifndef __ASSEMBLER__
-    #define MRdpSetTile4bpp(tidx, tmem_tex_addr, tmem_tex_pitch, tmem_pal_addr, width, height) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_4BIT, \
-            (tmem_tex_pitch) < 0 ? (width)/8 : tmem_tex_pitch, \
-            (tmem_tex_addr) < 0 ? -(tmem_tex_addr) * (width)*(height)/2/8 : tmem_tex_addr, tidx) \
-            | (((tmem_pal_addr)<0 ? -(tmem_pal_addr) : ((tmem_pal_addr)&0x780)>>7) << 20), \
-        RdpSetTileSizeI(tidx, 0, 0, (width)-1, (height)-1)
-#else
-    #define MRdpSetTile4bpp_Slot_Autopitch(tidx, tmem_tex_addr, tmem_pal_addr, width, height) \
-        RdpSetTile(RDP_TILE_FORMAT_INDEX, RDP_TILE_SIZE_4BIT, \
-            (width)/8, \
-            -(tmem_tex_addr) * (width)*(height)/2/8, tidx) \
-            | ((-(tmem_pal_addr)) << 20), \
-        RdpSetTileSizeI(tidx, 0, 0, (width)-1, (height)-1)
-#endif
-
-/**
- * MRdpDrawRect4bpp - Display list for drawing a 4bpp textured rectangle
- *
- * @param tidx             Tile ID (0-7) previously setup using MRdpSetTile4bpp
- * @param x                X coordinate of the rectangle
- * @param y                Y coordinate of the rectangle
- * @param w                width of the rectangle
- * @param h                height of the rectangle
- *
- */
-
-#define MRdpTextureRectangle4bpp(tidx, x, y, w, h) \
-    RdpTextureRectangle1I(tidx, x, y, (x)+(w)-1, (y)+(h)-1), \
-    RdpTextureRectangle2I(0, 0, 4, 1)
-
-
-#endif
+#endif /* RDP_COMMANDS_H */

@@ -4,25 +4,32 @@
 #include "minilib.h"
 #include "stage1.h"
 #include "ay8910.h"
+#include "rdp_commands.h"
+#include "rdpq_macros.h"
 #include <math.h>
+
+#define UNCACHED    __attribute__((__section__(".uncached"), __aligned__(16)))
 
 #define SWAP(a, b)  ({ typeof(a) _tmp = a; a = b; b = _tmp; })
 #define CLAMP(x, min, max)  ((x) < (min) ? (min) : (x) > (max) ? (max) : (x))
 
-#include "bbsong1.c"
-#define AI_FREQUENCY                SONG_FREQUENCY
-
 #define FB_BUFFER_0         ((void*)0xA0100000)  // len = 320*240*2, end = 0xA0125800
 #define FB_BUFFER_1         ((void*)0xA0130000)  // len = 320*240*2, end = 0xA014B000
+#define FB_BUFFER_2         ((void*)0xA0160000)
 
-#define AI_BUFFERS          ((void*)0xA0170800)
-#define AI_BUFFER_SIZE      4096
+#define AI_BUFFERS          ((void*)0xA0190800)
+#define DELAY_BUFFER        ((void*)0x801A0000)
 
 #define TEXTURE_BUFFER      ((void*)0xA0200000)
 
 #define VERTEX_BUFFER       ((void*)0xA0210000)
 #define RDP_BUFFER          ((void*)0xA0220000)
 #define Z_BUFFER            ((void*)0xA03D0000)
+
+#include "bbsong1.c"
+#define AI_FREQUENCY                SONG_FREQUENCY
+#define AI_BUFFER_SIZE              (4096*2)
+
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
 
@@ -36,6 +43,9 @@ static bool sys_bbplayer(void) { return (*MI_VERSION & 0xF0) == 0xB0; }
 
 void *vi_buffer_draw;
 void *vi_buffer_show;
+int vi_buffer_draw_idx;
+int framecount;
+const uint32_t *vi_regs_default;
 
 static void vi_init(void)
 {
@@ -55,6 +65,7 @@ static void vi_init(void)
     regs[13] = 0x400;
 
     int tv_type = get_tv_type();
+    vi_regs_default = vi_regs_p[tv_type];
     #pragma GCC unroll 0
     for (int reg=0; reg<7; reg++)
         regs[reg+5] = vi_regs_p[tv_type][reg];
@@ -66,7 +77,9 @@ static void vi_init(void)
 
 static void vi_wait_vblank(void)
 {
+    // wait for line change at the beginning of the vblank
     while (*VI_V_CURRENT != 2) {}
+    while (*VI_V_CURRENT != 4) {}
     *VI_ORIGIN = (uint32_t)vi_buffer_draw;
     SWAP(vi_buffer_draw, vi_buffer_show);
 }
@@ -102,15 +115,35 @@ static void ai_init(void)
     ai_buffer_offset = (uint32_t)AI_BUFFERS;
 }
 
+static void dp_wait(void)
+{
+    while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
+}
+
 static void dp_send(void *dl, void *dl_end)
 {
     *DP_START = (uint32_t)dl;
     *DP_END = (uint32_t)(dl_end);
+    dp_wait();
 }
 
-static void dp_wait(void)
+void dp_begin_frame(void)
 {
-    while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
+    static RdpList dlist[] = {
+        RdpSetColorImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_16BIT, 320, 0),
+        RdpSetZImage(Z_BUFFER),
+        RdpSetClippingI(0, 0, 320, 240),
+        RdpSetOtherModes(SOM_CYCLE_1 | SOM_ZSOURCE_PRIM | SOM_Z_WRITE),
+        RdpSetCombine(RDPQ_COMBINER_FLAT),
+        RdpSetPrimDepth(0xFFFE),
+        RdpSetPrimColor(RGBA32(0x0, 0x00, 0x0, 0xFF)),
+        RdpFillRectangleI(0, 0, 320, 240),
+        RdpSyncFull(),
+    };
+
+    uint32_t *udl = (uint32_t*)((uint32_t)dlist | 0xA0000000);
+    udl[1] = (uint32_t)vi_buffer_draw;
+    dp_send(dlist, dlist + sizeof(dlist)/sizeof(uint64_t));
 }
 
 
@@ -118,80 +151,56 @@ void bb_render(int16_t *buffer)
 {
     static int t = 0;
 
+    uint32_t t0 = C0_COUNT();
     for (int i=0; i<AI_BUFFER_SIZE/4; i++) {
         float v = bbgen(t);
         t++;
         buffer[i*2+0] = buffer[i*2+1] = (int16_t)(v * 128.0f);
     }
+    uint32_t t1 = C0_COUNT() - t0;
+    debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
 
 //#include "noise.c"
+#include "ucode.c"
 #include "scroller.c"
 #include "bkg.c"
 #include "mesh.c"
-#include "ucode.c"
+#include "fractal.c"
 
 __attribute__((used))
 void demo(void)
 {
     ai_init();
     vi_init();
-    //ym_init();
     ucode_init();
 
-#if 0
-    init_perlin();
-    
-    #define TW   32
-    for (int y=0;y<TW;y++) {
-        for (int x=0;x<TW;x++) {
-            float noise = perlin((float)x*8 / TW, (float)y / TW);
-            int value = (int)((noise + 1.0f) * 0.5f * 32);
-
-            uint16_t pixel = RGBA(value, value, value, 1);
-            ((uint16_t*)FB_BUFFER_0)[y * 320 + x] = pixel;
-        }
-    }
-#endif
-
-    float dispTimer = -3;
-    
+    //skip to a certain scene:
+    //framecount=450;
     while(1) {
         vi_wait_vblank();
-        draw_bkg();
+        framecount++;
+        dp_begin_frame();
+        draw_intro(vi_buffer_draw);
 
-        //uint32_t t = C0_COUNT();
+        if (framecount > 450)
+        {
+            fracgen_partial(TEXTURE_BUFFER);
+            fracgen_draw(TEXTURE_BUFFER);
+        }
 
-        xangle += 0.01f;
-        yangle += 0.015f;
-        uint32_t vert_buff_end = mesh();
-        ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
-
-        *DP_STATUS = DP_WSTATUS_SET_XBUS;
-        *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
-        *DP_END = 0x30;
-
-        float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
-        ucode_set_displace(dispFactor * 0x7FFF); 
-        if(dispTimer > MM_PI*2)dispTimer = -2;
-        dispTimer += 0.01f;
-
-        ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
-        ucode_run();
-        dp_wait();
-
-        *DP_STATUS = DP_WSTATUS_CLR_XBUS;
-
-        //t = C0_COUNT() - t;
-        //debugf("3D: %ldus\n", TICKS_TO_US(t));
+        if (framecount > 700) {
+            mesh_draw();
+        }
     
-        //draw_scroller(vi_buffer_draw);
-    
-        int16_t *ai_buffer = ai_poll();
-         if (ai_buffer) {
-             bb_render(ai_buffer);
-             ai_poll_end();
-         }
+        // draw_scroller(vi_buffer_draw);
+        draw_credits(vi_buffer_draw);
+
+        // int16_t *ai_buffer = ai_poll();
+        //  if (ai_buffer) {
+        //      bb_render(ai_buffer);
+        //      ai_poll_end();
+        //  }
     }
     while(1) {}
 }

@@ -1,6 +1,9 @@
+#include "minidragon.h"
 #include "minimath.h"
 #include <stdint.h>
 #include "rdp_commands.h"
+
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
 
 typedef struct {
   int8_t pos[3];
@@ -94,4 +97,71 @@ uint32_t mesh(void)
     }
 
    return (uint32_t)vtx;
+}
+
+static int torus_fade = 0;
+
+static RdpList dl_setup_3d[] = {
+    [0] = RdpSyncPipe(),
+    [4] = RdpSetEnvColor(RGBA32(0x00, 0x00, 0x00, 0x1)),
+    [5] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, NULL, 8),
+           RdpSetTile(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 8, 0, TILE0) | 
+                RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, 3),
+           RdpLoadTileI(TILE0, 0, 0, 8, 8),
+    [10] = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, NULL, 8),
+           RdpSetTile(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 8, 0x400, TILE1) | 
+                RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, -1),
+           RdpLoadTileI(TILE1, 0, 0, 8, 8),
+           RdpSetOtherModes(SOM_CYCLE_2 | SOM_Z_COMPARE | SOM_Z_WRITE | SOM_ZSOURCE_PIXEL | SOM_SAMPLE_BILINEAR | SOM_ALPHACOMPARE_NOISE),
+           RdpSetPrimColor(RGBA32(0xFF, 0xAA, 0x99, 0xFF)),
+           RdpSetCombine(RDPQ_COMBINER2(
+            // inverted fresnel, scale down to 0 by amount of fresnel
+            (TEX1,TEX0,SHADE_ALPHA, TEX0), (0,0,0,ENV),
+            // color in cycle 1 with PRIM, then apply specular
+            (COMBINED,0,PRIM,SHADE),     (0,0,0,ENV)
+         )),
+         RdpSyncFull()
+};
+
+#define dl_setup_3d_cnt  (sizeof(dl_setup_3d) / sizeof(uint64_t))
+
+static void setup_3d(void)
+{
+    uint64_t *udl = (uint64_t*)((uint32_t)dl_setup_3d | 0xA0000000);
+    udl[4] = (udl[4] & 0xFFFFFFFFFFFFFF00ull) | (torus_fade & 0xFF);
+    udl[5] |= (uint32_t)checkerboard + 32;
+    udl[10] |= (uint32_t)bbsong_data + 16;
+
+    dp_send(dl_setup_3d, dl_setup_3d+dl_setup_3d_cnt);
+}
+
+static void mesh_draw(void)
+{
+    torus_fade = MIN((framecount-700)<<2, 0xFF);
+
+    setup_3d();
+
+    xangle += 0.01f;
+    yangle += 0.015f;
+    uint32_t vert_buff_end = mesh();
+    ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
+
+    *DP_STATUS = DP_WSTATUS_SET_XBUS;
+    *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
+    *DP_END = 0x30;
+
+    if (framecount > 1600) {
+        static float dispTimer = -3;
+        float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
+        ucode_set_displace(dispFactor * 0x7FFF); 
+        if(dispTimer > MM_PI*2)dispTimer = -2;
+        dispTimer += 0.01f;
+    }
+
+    ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
+    ucode_run();
+    dp_wait();
+
+    *DP_STATUS = DP_WSTATUS_CLR_XBUS;
+
 }
