@@ -180,8 +180,10 @@ void demo(void)
     while(1) {
         vi_wait_vblank();
         framecount++;
+        draw_intro_setup();
+        
         dp_begin_frame();
-        draw_intro(vi_buffer_draw);
+        draw_intro();
 
         if (framecount > 450)
         {
@@ -194,7 +196,7 @@ void demo(void)
         }
     
         // draw_scroller(vi_buffer_draw);
-        draw_credits(vi_buffer_draw);
+        draw_credits();
 
         // int16_t *ai_buffer = ai_poll();
         //  if (ai_buffer) {

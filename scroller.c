@@ -44,7 +44,7 @@ uint32_t colors[4] = {
     0xFFAA99FF,     // melon
 };
 
-static void draw_text(uint16_t *FB, uint32_t color, const uint8_t *text, int text_len, int xpos0, int ypos0)
+static void draw_text(uint32_t color, const uint8_t *text, int text_len, int xpos0, int ypos0)
 {
     int xpos = xpos0;
     int ypos = ypos0;
@@ -83,21 +83,22 @@ void draw_scroller(uint16_t *FB)
 }
 #endif
 
-void draw_intro(uint16_t *FB)
+static int intro_phidx = 0;
+
+static void draw_intro_setup(void)
 {
     static bool visible = false;
     volatile uint32_t* regs = (uint32_t*)0xA4400000;
 
     int fc = framecount;
-    int phidx = fc >> 7;
-    if (phidx > 2) {
+    intro_phidx = fc >> 7;
+    if (intro_phidx > 2) {
         *VI_H_VIDEO = vi_regs_default[4];
         *VI_X_SCALE = 0x200;
         *VI_Y_SCALE = 0x400;
         return;
     }
     *VI_ORIGIN += 0x40;
-    draw_text(FB, colors[phidx], phrases+phrases_off[phidx], phrases_off[phidx+1] - phrases_off[phidx], 120, 8);
 
     int rand = random_u32();
     if ((visible && (rand&0xff) < 32) || fc == 1) {
@@ -111,7 +112,14 @@ void draw_intro(uint16_t *FB)
     }
 }
 
-void draw_credits(uint16_t *FB)
+static void draw_intro(void)
+{
+    int phidx = intro_phidx;
+    if (phidx > 2) return;
+    draw_text(colors[phidx], phrases+phrases_off[phidx], phrases_off[phidx+1] - phrases_off[phidx], 120, 8);
+}
+
+static void draw_credits(void)
 {
     static int xpos0[3] = { 120, 80, 120 };
     const int PH_START = 3;
@@ -132,5 +140,5 @@ void draw_credits(uint16_t *FB)
 
     phidx += PH_START;
     int off = phrases_off[phidx];
-    draw_text(FB, color, phrases+off, phrases_off[phidx+1] - off, xpos, 200);
+    draw_text(color, phrases+off, phrases_off[phidx+1] - off, xpos, 200);
 }
