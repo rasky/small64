@@ -413,6 +413,7 @@ void rdram_init(void)
         }
         int target_cc = weighted_cc / NUM_CALIBRATION_ATTEMPTS;
         rdram_reg_w_mode(chip_id, RDRAM_AUTO_CURRENT ? true : false, target_cc);
+#if 0
         // Now that we have calibrated the output current of the chip, we are able
         // to actually read data from it. Read the manufacturer code and the device type.
         rdram_reg_devicetype_t t = rdram_reg_r_devicetype(chip_id);
@@ -427,7 +428,7 @@ void rdram_init(void)
             rdram_reg_w_deviceid(chip_id, INVALID_ID);
             break;
         }
-
+#endif
         // Read the manufacturer to configure the timing
         rdram_reg_manufacturer_t m = rdram_reg_r_manufacturer(chip_id);
 
@@ -440,7 +441,7 @@ void rdram_init(void)
             default:
                 // For anything else, use the low latency bit to try to configure
                 // the correct RAS intervals
-                if (t.low_latency)
+                if (false)  // FIXME: low_latency
                     ras_interval = RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4);
                 else
                     ras_interval = RDRAM_REG_RASINTERVAL_MAKE(2, 6,  9, 4);            
