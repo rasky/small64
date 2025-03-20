@@ -95,13 +95,14 @@ build/stage12.bin: build/small.elf
 	@echo "    [SHRINK] $@"
 	$(N64_OBJCOPY) -O binary -j .text.stage1 $< build/stage1.bin.raw
 	$(N64_OBJCOPY) -O binary -j .text.stage2 $< build/stage2.bin.raw
-	cat build/stage1.bin.raw build/stage2.bin.raw >$@.raw
+	$(N64_OBJCOPY) -O binary -j .text.stage2u $< build/stage2u.bin.raw
+	cat build/stage1.bin.raw build/stage2.bin.raw build/stage2u.bin.raw >$@.raw
 	if [ ${COMPRESSION_ALGO} -eq 0 ]; then \
 	 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null; \
 	else \
 		$(UPKR) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
 		$(UPKR) --heatmap --parity 4 $@; \
-		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 | head -n 10; \
+		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
 	fi
 
 heatmap: build/heatmap.html

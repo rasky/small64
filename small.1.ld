@@ -9,6 +9,7 @@ MEMORY
     imem : ORIGIN = 0xA4001000, LENGTH = 4096
     rom  : ORIGIN = 0xB0001000, LENGTH = 16384
     ram  : ORIGIN = 0x80000000, LENGTH = 256*1024
+    uram  : ORIGIN = 0xA0000000, LENGTH = 256*1024
 }
 
 SECTIONS {
@@ -43,8 +44,17 @@ SECTIONS {
         __stage2 = .;
         __stage2_start = .;
         KEEP(build/demo.o(.text.demo))
-        build/demo.o
+        build/demo.o(.text .text.*)
+        build/demo.o(.rodata .rodata.*)
+        build/demo.o(.data .data.*)
+        build/demo.o(.sdata .sdata.*)
+        build/demo.o(.bss .bss.*)
+        build/demo.o(.sbss .sbss.*)
         build/minilib.o
         . = ALIGN(8);
     } > ram
+
+    .text.stage2u 0xA0000000 + SIZEOF(.text.stage1) + SIZEOF(.text.stage2) : {
+        build/demo.o(.uncached)
+    } > uram
 }
