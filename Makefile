@@ -48,7 +48,7 @@ SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
-OBJS = build/stage1.o build/minidragon.o build/rdram.o
+OBJS = build/stage1.o build/minidragon.o build/rdram.o build/minirdram.o
 OBJS += build/demo.o build/minilib.o
 
 # Sources used to build the final compressed binary
@@ -105,6 +105,9 @@ build/stage12.bin: build/small.elf
 		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
 	fi
 
+stats: build/small.elf
+	tools/heatmap.py --heatmap build/stage12.heatmap build/small.elf .text.stage1 .text.stage2
+
 heatmap: build/heatmap.html
 
 build/heatmap.html: build/stage12.bin
@@ -127,11 +130,11 @@ run: small.z64
 	sc64deployer upload --direct small.z64 && sc64deployer debug --isv 0x3FF0000
 
 disasm: build/small.elf
-	$(N64_OBJDUMP) -D build/small.elf
+	$(N64_OBJDUMP) -D build/small.elf	
 
 clean:
 	rm -rf build small.z64 run
 
 -include $(wildcard build/*.d)
 
-.PHONY: all disasm run heatmap
+.PHONY: all disasm run heatmap stats
