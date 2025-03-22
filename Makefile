@@ -48,7 +48,7 @@ SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
-OBJS = build/stage1.o build/minidragon.o build/rdram.o build/minirdram.o
+OBJS = build/stage1.o build/minidragon.o build/rdram.o
 OBJS += build/demo.o build/minilib.o
 
 # Sources used to build the final compressed binary
