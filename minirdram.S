@@ -33,6 +33,19 @@
 # code will hang if expansion pak is not present.
 #define NUM_RDRAM_BANKS           2
 
+# RDRAM datasheets advise to perform output current calibration, and all
+# the IPL3 code does that, including libdragon's. However, it seems that
+# a fixed value which is high enough but not too high, works perfectly
+# on all tested units. This allows to save quite a bit of code. We choose
+# 0x30 (on a scale from 0 to 0x3F).
+#define CURRENT_CALIBRATION       0
+
+# Configure the RDRAM refresh rate. This is described as required in the
+# n64brew wiki, but it seems like the defaults are reasonable and don't cause
+# much of a performance hit.
+#define REFRESH_RATE              0
+
+
     .set noreorder
     .set noat
 
@@ -44,10 +57,14 @@
 #define BITS(x, b, e)       (((x) >> (b)) & ((1 << ((e)-(b)+1))-1))
 #define BITSWAP5(x)         ((BIT(x,0)<<4) | (BIT(x,1)<<3) | (BIT(x,2)<<2) | (BIT(x,3)<<1) | (BIT(x,4)<<0))
 
-#define RDRAM_CHIP          $t5
+#define chip_id             $a0
+#define cc                  $t4
 #define RDRAM_BROADCAST     $t6
+#define RDRAM_CHIP          $t5
 #define MI_BASE             $t7
 #define RI_BASE             $t8
+#define vaddr               $t7
+
 #define RI_MODE             0x0(RI_BASE)
 #define RI_CONFIG           0x4(RI_BASE)
 #define RI_CURRENT_LOAD     0x8(RI_BASE)
@@ -76,6 +93,12 @@
 
 #define RDRAM_MODE_DE       (1<<25)
 #define RDRAM_MODE_AS       (1<<26)
+#define RDRAM_MODE_CC(cc)   ((BIT((cc)^0x3F, 0) << 6)  | \
+                             (BIT((cc)^0x3F, 1) << 14) | \
+                             (BIT((cc)^0x3F, 2) << 22) | \
+                             (BIT((cc)^0x3F, 3) << 7)  | \
+                             (BIT((cc)^0x3F, 4) << 15) | \
+                             (BIT((cc)^0x3F, 5) << 23))
 
 #define RDRAM_DELAY(AckWinDelay, ReadDelay, AckDelay, WriteDelay) \
    ((((AckWinDelay) & 7) << 3 << 24) | \
@@ -141,10 +164,9 @@ mini_rdram_init:
      li $a0, 6
 #endif
 
-#if 0
+#if REFRESH_RATE
     # Configure refresh rate. This seems not to be required. Keep the code
     # around in case we need to tweak it.
-    li RI_BASE, 0xA4700000
     li $t0, RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE | RI_REFRESH_CLEANDELAY(52) \
         | RI_REFRESH_DIRTYDELAY(54) \
         | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)
@@ -184,15 +206,7 @@ mini_rdram_init:
     sw $t3, RDRAM_REG_MODE(RDRAM_CHIP)          # write mode reg with CC value
 .endm
 
-
-#define chip_id             $a0
-#define RDRAM_CHIP          $t5
-#define cc                  $t8
-#define vaddr               $t7
-#define ra2                 $t6
-
 mini_rdram_calibrate_current:
-
     # Configure chip ID for the next RDRAM chip in the bus.
     # We previously broadcasted ID 0x7F to all chips, so talk to
     # that ID.
@@ -203,7 +217,8 @@ mini_rdram_calibrate_current:
     li RDRAM_CHIP, 0xA3F00000
     sll chip_id, 10
     or RDRAM_CHIP, chip_id
-    
+
+#if CURRENT_CALIBRATION
     li vaddr, 0xA0000000
     sll chip_id, 10
     or vaddr, chip_id
@@ -240,27 +255,33 @@ mini_rdram_calibrate_current:
     sll cc, cc, 1
     set_cc cc
 
+#else
+    # Use a fixed CC value of 0x30 that seems to work perfectly on all tested
+    # units.
+    li $t3, RDRAM_MODE_DE | RDRAM_MODE_AS | 0x40000000 | RDRAM_MODE_CC(0x30)
+    sw $t3, RDRAM_REG_MODE(RDRAM_CHIP)
+#endif
+
     # Configure the RAS interval to a fixed value that is known to work
     # on hopefully all RDRAM chips shipped with the N64.
     li $t0, RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)
     sw $t0, RDRAM_REG_RAS_INTERVAL(RDRAM_CHIP)
 
     # Do 8 reads to settle timing circuits
-    # The actual opcode is not important, but we repeat the opcode
-    # used in the rdram test loop to improve compression.
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
-    lb $t2, 5(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
+    lb $zero, 0(vaddr)
     jr $ra
-     lb $t2, 5(vaddr)
+     lb $zero, 0(vaddr)
 
+#if CURRENT_CALIBRATION
 shifts:
     .byte 23, 15, 7, 22, 14, 6
-
+#endif
     .type mini_rdram_calibrate_current, @function
     .size mini_rdram_calibrate_current, .-mini_rdram_calibrate_current
 
