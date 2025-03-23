@@ -17,7 +17,13 @@ register uint32_t ipl2_version   asm ("s7");
 __attribute__((section(".stage1")))
 int stage1(void)
 {    
+#if 1
+    extern int mini_rdram_init(void);
+    int memsize = mini_rdram_init();
+#else
     rdram_init();
+    const int memsize = 4*1024*1024;
+#endif
 
     *IPL3_TV_TYPE = ipl2_tvType;
 
@@ -32,6 +38,5 @@ int stage1(void)
     extern char _gp;
     asm("la $gp, %0"::"i"(&_gp));
 
-    const int memsize = 4*1024*1024;
     return memsize;
 }
