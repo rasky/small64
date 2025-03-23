@@ -52,12 +52,19 @@
 #define RI_CONFIG           0x4(RI_BASE)
 #define RI_CURRENT_LOAD     0x8(RI_BASE)
 #define RI_SELECT           0xC(RI_BASE)
+#define RI_REFRESH          0x10(RI_BASE)
 
 #define MI_MODE             0x0(MI_BASE)
 
 #define RI_CONFIG_AUTO_CALIBRATION   0x40
 #define RI_SELECT_RX_TX              0x14
 #define RI_MODE_STANDARD             (0x8|0x4|0x2)
+
+#define RI_REFRESH_CLEANDELAY(x)            ((x) & 0xFF)
+#define RI_REFRESH_DIRTYDELAY(x)            (((x) & 0xFF) << 8)
+#define RI_REFRESH_AUTO                     (1<<17)
+#define RI_REFRESH_OPTIMIZE                 (1<<18)
+#define RI_REFRESH_MULTIBANK(x)             (((x) & 0xF) << 19)
 
 #define MI_MODE_REPEAT(n)            (0x100 | ((n)-1))
 
@@ -132,6 +139,16 @@ mini_rdram_init:
 #if NUM_RDRAM_BANKS > 3
     jal mini_rdram_calibrate_current
      li $a0, 6
+#endif
+
+#if 0
+    # Configure refresh rate. This seems not to be required. Keep the code
+    # around in case we need to tweak it.
+    li RI_BASE, 0xA4700000
+    li $t0, RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE | RI_REFRESH_CLEANDELAY(52) \
+        | RI_REFRESH_DIRTYDELAY(54) \
+        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)
+    sw $t0, RI_REFRESH
 #endif
 
     lw $ra, -4($sp)
