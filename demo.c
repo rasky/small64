@@ -198,11 +198,11 @@ void demo(void)
         // draw_scroller(vi_buffer_draw);
         draw_credits();
 
-        // int16_t *ai_buffer = ai_poll();
-        //  if (ai_buffer) {
-        //      bb_render(ai_buffer);
-        //      ai_poll_end();
-        //  }
+        int16_t *ai_buffer = ai_poll();
+         if (ai_buffer) {
+             bb_render(ai_buffer);
+             ai_poll_end();
+         }
     }
     while(1) {}
 }
