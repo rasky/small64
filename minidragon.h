@@ -63,6 +63,9 @@ typedef uint64_t u_uint64_t __attribute__((aligned(1)));
 #define debugf(s, ...)   ({ })
 #endif
 
+#define BIT(x, n)           (((x) >> (n)) & 1)
+#define BITS(x, b, e)       (((x) >> (b)) & ((1 << ((e)-(b)+1))-1))
+
 #define abs(x)             __builtin_abs(x)
 #define fabsf(x)           __builtin_fabsf(x)
 
@@ -231,6 +234,60 @@ typedef uint64_t u_uint64_t __attribute__((aligned(1)));
 #define DP_WSTATUS_CLR_PIPE_BUSY            0x0080
 #define DP_WSTATUS_CLR_BUFFER_BUSY          0x0100
 #define DP_WSTATUS_CLR_CLOCK                0x0200
+
+#define RI_MODE                             ((volatile uint32_t*)0xA4700000)
+#define RI_CONFIG                           ((volatile uint32_t*)0xA4700004)
+#define RI_CURRENT_LOAD                     ((volatile uint32_t*)0xA4700008)
+#define RI_SELECT                           ((volatile uint32_t*)0xA470000C)
+#define RI_REFRESH                          ((volatile uint32_t*)0xA4700010)
+
+#define RI_CONFIG_AUTO_CALIBRATION          0x40
+#define RI_SELECT_RX_TX                     0x14
+#define RI_MODE_STANDARD                    (0x8|0x4|0x2)
+
+#define RI_REFRESH_CLEANDELAY(x)            ((x) & 0xFF)
+#define RI_REFRESH_DIRTYDELAY(x)            (((x) & 0xFF) << 8)
+#define RI_REFRESH_AUTO                     (1<<17)
+#define RI_REFRESH_OPTIMIZE                 (1<<18)
+#define RI_REFRESH_MULTIBANK(x)             (((x) & 0xF) << 19)
+
+#define RDRAM_REGS(chip)                    ((volatile uint32_t*)(0xA3F00000 + ((chip) << 10)))
+#define RDRAM_REGS_BROADCAST                ((volatile uint32_t*)0xA3F80000)
+
+#define RDRAM_REG_DEVICE_ID                 1
+#define RDRAM_REG_DELAY                     2
+#define RDRAM_REG_MODE                      3
+#define RDRAM_REG_REF_ROW                   5
+#define RDRAM_REG_RAS_INTERVAL              6
+
+#define BITSWAP5(x)         ((BIT(x,0)<<4) | (BIT(x,1)<<3) | (BIT(x,2)<<2) | (BIT(x,3)<<1) | (BIT(x,4)<<0))
+#define ROT16(x)            ((((x) & 0xFFFF0000) >> 16) | (((x) & 0xFFFF) << 16))
+
+#define RDRAM_REG_MODE_DE       (1<<25)
+#define RDRAM_REG_MODE_AS       (1<<26)
+#define RDRAM_REG_MODE_CC(cc)   ((BIT((cc)^0x3F, 0) << 6)  | \
+                                (BIT((cc)^0x3F, 1) << 14) | \
+                                (BIT((cc)^0x3F, 2) << 22) | \
+                                (BIT((cc)^0x3F, 3) << 7)  | \
+                                (BIT((cc)^0x3F, 4) << 15) | \
+                                (BIT((cc)^0x3F, 5) << 23))
+
+#define RDRAM_REG_DEVICE_ID_MAKE(chip_id) \
+    (BITS(chip_id, 0, 5) << 26 | \
+     BITS(chip_id, 6, 6) << 23 | \
+     BITS(chip_id, 7, 14) << 8 | \
+     BITS(chip_id, 15, 15) << 7)
+
+
+#define RDRAM_REG_DELAY_MAKE(AckWinDelay, ReadDelay, AckDelay, WriteDelay) \
+   ((((AckWinDelay) & 7) << 3 << 24) | \
+    (((ReadDelay)   & 7) << 3 << 16) | \
+    (((AckDelay)    & 3) << 3 <<  8) | \
+    (((WriteDelay)  & 7) << 3 <<  0))
+
+#define RDRAM_REG_RASINTERVAL_MAKE(row_precharge, row_sense, row_imp_restore, row_exp_restore) \
+    ((BITSWAP5(row_precharge) << 24) | (BITSWAP5(row_sense) << 16) | (BITSWAP5(row_imp_restore) << 8) | (BITSWAP5(row_exp_restore) << 0))
+
 
 #define UncachedAddr(x)                     ((void*)((uint32_t)(x) | 0x20000000))
 
