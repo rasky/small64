@@ -115,7 +115,7 @@ build/heatmap.html: build/stage12.bin
 	open $@
 
 # Build final binary with compressed stages
-%.z64: build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS:%.c=build/%.o)
+%.z64: build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
