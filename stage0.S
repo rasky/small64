@@ -208,7 +208,7 @@ decompress:
     bal upkr_decode_bit                     # decode next bit of literal
      move $fp, $ra
     addiu ctx, -UPKR_PARITY                 # reverse the increment by upkr_decode_bit
-sll ctx, 1                                  # make room for the new bit
+    sll ctx, 1                              # make room for the new bit
     addu ctx, decoded_bit                   # merge in decoded bit
     srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
     beqz prev_was_literal, .Lliteral        # check if we're done (8 bits decoded)
