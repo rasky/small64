@@ -35,7 +35,6 @@ SECTIONS {
         __stage1 = .;
         KEEP(*(.stage1))
         build/stage1.o       
-        build/rdram.o
         build/minirdram.o
         . = ALIGN(8);
     } > imem
