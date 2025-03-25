@@ -31,11 +31,11 @@
 # ============================
 # ROM header
 # ============================
-# Since most of the header would be unused, we embed the clear_cache function
-# in it. This function is called twice by stage 0 so it is a good fit to be
-# moved here.
+# Since most of the header would be unused, we embed a function to copy the
+# decompressed stage1 from cache to IMEM in the header.
 # We still keep a ASCIIZ title so that ROM managers and emulators display
-# it correctly.
+# it correctly, plus the PI DOM1 parameters, which are used by the IPL2
+# to load the ROM into DMEM.
 
     .section .header, "ax"
 
@@ -66,7 +66,7 @@ post_stage1_decomp:
     lw $t0, 0($a1)
     addiu $a1, 4
     sw $t0, 0x1000($a0)
-    bne $a0, $a2, .Lcopy_loop   # Always copy 4K. We don't know how big is stage0 exactly
+    bne $a0, $a2, .Lcopy_loop   # Always copy 4K. We don't waste an opcode to know the exact size here
      addiu $a0, 4
     jr $a2                      # Jump to stage1 in IMEM
 
