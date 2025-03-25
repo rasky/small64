@@ -88,7 +88,7 @@ build/rsp_u3d.inc: rsp_u3d.S
 # Build initial binary with all stages (uncompressed)
 build/small.elf: small.1.ld $(OBJS) build/rsp_u3d.inc
 	@echo "    [LD] $@"
-	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -o $@ $(filter %.o,$^)
+	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=stage1 -o $@ $(filter %.o,$^)
 
 # Extract and compress stages
 build/stage12.bin: build/small.elf

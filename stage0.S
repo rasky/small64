@@ -171,7 +171,7 @@ decompress:
     sb prev_was_literal, 0($t1)             # store 0x80
     addiu state, -1                 
     bnez state, .Lctx_init_loop             # loop until all contexts are initialized
-     lui lax_base, %hi(decompress)          # init lax_base to this segment (so lax works)
+     li lax_base, 0xA4000000                # init lax_base to this segment (so lax works)
     # state now is 0
     # prev_was_literal now is non-zero
 
