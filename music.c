@@ -1,8 +1,8 @@
 #include "minimath.h"
 #include <stdint.h>
-#define SONG_FREQUENCY 44100
+#define SONG_FREQUENCY 32000
 #define MUSIC_BPM 144
-#define MUSIC_TRACKS 3
+#define MUSIC_TRACKS 4
 
 static const char bbsong_data[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
@@ -135,7 +135,7 @@ void music_init()
         Y += (X * K) >> 32;
     }
 
-    int64_t F = 49254460997;     // 2**((64+127-69)/12)*440/44100*(1 << 32)
+    int64_t F = 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
     const int64_t C = 126684666; // round(2**(-1/12)*(1 << 27))
     for (int i = 0; i < 256; i++)
     {
@@ -203,7 +203,7 @@ void music_render(int16_t *buffer, int32_t samples)
                     envState = Attacking;
                 }
                 currentRow++;
-                sampleWithinRow = 44100 * 60 / (MUSIC_BPM * 4);
+                sampleWithinRow = SONG_FREQUENCY * 60 / (MUSIC_BPM * 4);
             }
             sampleWithinRow--;
 
@@ -246,6 +246,11 @@ void music_render(int16_t *buffer, int32_t samples)
             case 2:                                              // saw
                 res = (int64_t)(((int32_t)oscPhase) >> 16) << 1; // done so that sign bits are shifted in correctly
                 break;
+            case 3:
+                localRng ^= (localRng << 13);
+                localRng ^= (localRng >> 7);
+                localRng ^= (localRng << 17);
+                res = ((int64_t)(localRng & 0x1FFFF) - 0x10000);
                 /*case 3: // triangle
                     int64_t t = ((int32_t)(oscPhase)-0x80000000) << 1;
                     if (t < 0)
