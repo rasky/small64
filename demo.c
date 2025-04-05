@@ -26,7 +26,7 @@
 #define RDP_BUFFER          ((void*)0xA0220000)
 #define Z_BUFFER            ((void*)0xA03D0000)
 
-#include "bbsong1.c"
+#include "music.c"
 #define AI_FREQUENCY                SONG_FREQUENCY
 #define AI_BUFFER_SIZE              (4096*2)
 
@@ -151,12 +151,8 @@ void bb_render(int16_t *buffer)
 {
     static int t = 0;
 
-    uint32_t t0 = C0_COUNT();
-    for (int i=0; i<AI_BUFFER_SIZE/4; i++) {
-        float v = bbgen(t);
-        t++;
-        buffer[i*2+0] = buffer[i*2+1] = (int16_t)(v * 128.0f);
-    }
+    uint32_t t0 = C0_COUNT();    
+    music_render(buffer, AI_BUFFER_SIZE/4);            
     uint32_t t1 = C0_COUNT() - t0;
     debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
@@ -174,6 +170,7 @@ void demo(void)
     ai_init();
     vi_init();
     ucode_init();
+    music_init();
 
     //skip to a certain scene:
     //framecount=450;
