@@ -2,7 +2,7 @@
 #include <stdint.h>
 #define SONG_FREQUENCY 44100
 #define MUSIC_BPM 144
-#define MUSIC_TRACKS 8
+#define MUSIC_TRACKS 4
 
 static const char bbsong_data[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
@@ -60,6 +60,9 @@ uint16_t reverbTimes[2][8] = {
     {1116, 1188, 1276, 1356, 1422, 1492, 1556, 1618},
     {1140, 1212, 1300, 1380, 1446, 1516, 1580, 1642}};
 
+int32_t musicTmpBuffer[4096]; // out, aux, out, aux, out, aux, ....
+int rng = 1;
+
 enum EnvState
 {
     Attacking = 0,
@@ -75,12 +78,12 @@ typedef struct
 
 typedef struct
 {
-    int64_t oscStates[2][2];
+    uint32_t oscPhase;
     int64_t tmp;
     int64_t envLevel;
     int64_t envState;
-    int64_t note;
-    int64_t drop;
+    int64_t freq;
+    int64_t dropFreq;
     FiltState filtState[2];
     struct
     {
@@ -88,7 +91,8 @@ typedef struct
         uint16_t index;
     } delayState;
     int64_t lfoPhase;
-    uint64_t rng;
+    int64_t sampleWithinRow;
+    int64_t currentRow;
 } SynthState;
 
 typedef struct
@@ -113,8 +117,6 @@ int64_t SinTable[8192];
 int64_t PowTable[256];
 SynthState synthStates[8];
 Reverb reverb;
-int sampleWithinRow;
-int currentRow;
 
 int64_t waveshape(int64_t value, int64_t amount)
 {
@@ -200,153 +202,170 @@ void music_init()
 
     memset32(&reverb, 0, sizeof(reverb));
     memset32(synthStates, 0, sizeof(SynthState) * MUSIC_TRACKS);
-    sampleWithinRow = 0;
-    currentRow = 0;
+
+    for (int track = 0; track < MUSIC_TRACKS; track++)
+    {
+        synthStates[track].sampleWithinRow = 0;
+        synthStates[track].currentRow = 0;
+    }
 }
 
 void music_render(int16_t *buffer, int32_t samples)
 {
+    uint64_t localRng = rng;
     for (int i = 0; i < samples; i++)
     {
-        if (!sampleWithinRow && currentRow < 580)
+        musicTmpBuffer[i * 2] = 0;
+    }
+
+    for (int track = 0; track < MUSIC_TRACKS; track++)
+    {
+        int64_t sampleWithinRow = synthStates[track].sampleWithinRow;
+        int64_t currentRow = synthStates[track].currentRow;
+        int64_t envLevel = synthStates[track].envLevel;
+        int64_t envState = synthStates[track].envState;
+        int64_t freq = synthStates[track].freq;
+        int64_t dropFreq = synthStates[track].dropFreq;
+        int64_t oscPhase = synthStates[track].oscPhase;
+
+        int64_t attack = nonLinearMap(params[track].attack);
+        int64_t decay = nonLinearMap(params[track].decay);
+        int64_t sustain = ((int64_t)params[track].sustain) << 17;
+        int64_t release = nonLinearMap(params[track].release);
+        int64_t noise = params[track].noise;
+        int64_t pitchDrop = params[track].pitchDrop;
+        int64_t reverbAmount = params[track].reverb;
+        int64_t waveform = params[track].oscParams[0].waveform;
+        int64_t volume = params[track].oscParams[0].volume;
+        int64_t transpose = params[track].oscParams[0].transpose;
+        int64_t dropNote = params[track].dropNote;
+
+        for (int i = 0; i < samples; i++)
         {
-            // trigger or release notes
-            for (int track = 0; track < MUSIC_TRACKS; track++)
+            if (!sampleWithinRow && currentRow < 580)
             {
                 SynthState *s = &synthStates[track];
                 uint8_t note = noteData[track][currentRow];
-                if (note == 1)
-                    continue;
                 if (note == 0)
                 { // release note
-                    s->envState = Releasing;
-                    continue;
+                    envState = Releasing;
                 }
-                s->note = note;
-                s->drop = 1 << 27;
-                s->oscStates[0][0] = 0;
-                s->oscStates[0][1] = 0;
-                s->oscStates[1][0] = 0;
-                s->oscStates[1][1] = 0;
-                s->envLevel = 0;
-                s->envState = Attacking;
+                else if (note > 1)
+                {
+                    freq = PowTable[(transpose + note) & 255];
+                    dropFreq = PowTable[(64 + dropNote) & 255];
+                    oscPhase = 0;
+                    envLevel = 0;
+                    envState = Attacking;
+                }
+                currentRow++;
+                sampleWithinRow = 44100 * 60 / (MUSIC_BPM * 4);
             }
-            currentRow++;
-            sampleWithinRow = 44100 * 60 / (MUSIC_BPM * 4);
-        }
-        int64_t totalOut[2] = {0, 0};
-        int64_t totalAux[2] = {0, 0};
-        for (int track = 0; track < MUSIC_TRACKS; track++)
-        {
-            int64_t out[2] = {0, 0};
-            int64_t aux[2] = {0, 0};
-            SynthState *c = &synthStates[track];
+            sampleWithinRow--;
+
+            int64_t out = 0;
+            int64_t aux = 0;
             SynthParams *p = &params[track];
 
-            if (c->envState == Attacking)
+            if (envState == Attacking)
             {
-                c->envLevel += nonLinearMap(p->attack);
-                if (c->envLevel >= 1 << 24)
+                envLevel += attack;
+                if (envLevel >= 1 << 24)
                 {
-                    c->envLevel = 1 << 24;
-                    c->envState++;
+                    envLevel = 1 << 24;
+                    envState++;
                 }
             }
-            if (c->envState == Decaying)
+            if (envState == Decaying)
             {
-                c->envLevel -= nonLinearMap(p->decay);
-                if (c->envLevel <= ((int64_t)p->sustain) << 17)
+                envLevel -= decay;
+                if (envLevel <= sustain)
                 {
-                    c->envLevel = ((int64_t)p->sustain) << 17;
-                    c->envState++;
+                    envLevel = sustain;
+                    envState++;
                 }
             }
-            if (c->envState == Releasing)
+            if (envState == Releasing)
             {
-                c->envLevel -= nonLinearMap(p->release);
-                if (c->envLevel < 0)
+                envLevel -= release;
+                if (envLevel < 0)
                 {
-                    c->envLevel = 0;
+                    envLevel = 0;
                 }
             }
-            int64_t e = c->envLevel;
-            for (int i = 0; i < 2; i++)
+            // for (int i = 0; i < 1; i++)
+            //            {
+            int64_t res = 0;
+            oscPhase += freq;
+            switch (waveform)
             {
-                int64_t res = 0;
-                int64_t *os = c->oscStates[i];
-                OscParam *op = &p->oscParams[i];
-                int64_t freq = PowTable[(op->transpose + c->note) & 255];
-                int64_t dropFreq = PowTable[p->dropNote + 64];
-                int64_t detune = (int64_t)op->detune - 64;
-                for (int i = 0; i < 2; i++)
-                {
-                    int64_t F = freq + ((detune * 983220 * freq) >> 32); // (2**(1/24)-1)* (1 << 25)
-                    F = (((F - dropFreq) * c->drop) >> 27) + dropFreq;
-                    os[i] = (os[i] + F) & 0xFFFFFFFF;
-                    switch (op->waveform)
-                    {
-                    default: // sine
-                        res = SinTable[(os[i] >> 19) & 8191];
-                        break;
-                    case 1: // square
-                        res = (os[i] & 0x80000000) ? 65536 : -65536;
-                        break;
-                    case 2:                                           // saw
-                        res = (int64_t)(((int32_t)os[i]) >> 16) << 1; // done so that sign bits are shifted in correctly
-                        break;
-                    case 3: // triangle
-                        int64_t t = (os[i] - 0x80000000) << 1;
-                        if (t < 0)
-                            t = -t;
-                        res = (t >> 15) - 65536;
-                        break;
-                    }
-                    res = waveshape(res, p->shape);
-                    res = (res * (int64_t)op->volume) >> 7;
-                    out[i] += res;
-                    detune = -detune;
-                }
+            default: // sine
+                res = SinTable[(oscPhase >> 19) & 8191];
+                break;
+            case 1: // square
+                res = (oscPhase & 0x80000000) ? 65536 : -65536;
+                break;
+            case 2:                                              // saw
+                res = (int64_t)(((int32_t)oscPhase) >> 16) << 1; // done so that sign bits are shifted in correctly
+                break;
+            case 3: // triangle
+                int64_t t = ((int32_t)(oscPhase)-0x80000000) << 1;
+                if (t < 0)
+                    t = -t;
+                res = (t >> 15) - 65536;
+                break;
             }
-            c->drop = (c->drop * (65536 - (int64_t)p->pitchDrop)) >> 16;
-            for (int i = 0; i < 2; i++)
+            // res = waveshape(res, p->shape);
+            res = (res * (int64_t)volume) >> 7;
+            out += res;
+            //}
+            freq = ((freq - dropFreq) * (65536 - (int64_t)pitchDrop) >> 16) + dropFreq;
+
+            if (noise)
             {
-                c->rng = Next(&c->rng);
-                out[i] += (((int64_t)((c->rng % 65536)) - 32768) * (int64_t)p->noise) >> 7;
-                out[i] = (out[i] * e) >> 24;
-                out[i] = stepFilt(&c->filtState[i], p, out[i]);
+                localRng ^= (localRng << 13);
+                localRng ^= (localRng >> 7);
+                localRng ^= (localRng << 17);
+                out += (((int64_t)(localRng & 65535) - 32768) * (int64_t)noise) >> 7;
             }
-            c->lfoPhase += PowTable[p->lfoRate] & 0xFFFFFFFF;
-            int64_t pan = (int64_t)p->pan * SinTable[(c->lfoPhase >> 19) & 8191] + (1 << 23);
-            out[0] = (out[0] * ((1 << 24) - pan)) >> 24;
-            out[1] = (out[1] * pan) >> 24;
+            out = (out * envLevel) >> 24;
+            // out = stepFilt(&c->filtState[0], p, out);
+            // c->lfoPhase += PowTable[p->lfoRate] & 0xFFFFFFFF;
+            // int64_t pan = (int64_t)p->pan * SinTable[(c->lfoPhase >> 19) & 8191] + (1 << 23);
+            // out[0] = (out[0] * ((1 << 24) - pan)) >> 24;
+            // out[1] = (out[1] * pan) >> 24;
+            out >>= 1;
             //  ping pong delay
-            uint16_t index = c->delayState.index - (uint16_t)((p->delayTime + 1) * 44100 * 60 / (MUSIC_BPM * 48));
+            // uint16_t index = c->delayState.index - (uint16_t)((p->delayTime + 1) * 44100 * 60 / (MUSIC_BPM * 48));
             // out[0] += (c->delayState.buffer[index][1] * (int64_t)p->delayAmount) >> 7;
             // out[1] += (c->delayState.buffer[index][0] * (int64_t)p->delayAmount) >> 7;
             // c->delayState.buffer[c->delayState.index][0] = out[0];
             // c->delayState.buffer[c->delayState.index][1] = out[1];
             // c->delayState.index++;
-            aux[0] = (out[0] * (int64_t)p->reverb) >> 7;
-            aux[1] = (out[1] * (int64_t)p->reverb) >> 7;
-
-            totalOut[0] += out[0];
-            totalOut[1] += out[1];
-            totalAux[0] += aux[0];
-            totalAux[1] += aux[1];
+            // aux = out * (int64_t)p->reverb >> 7;
+            musicTmpBuffer[i * 2] += out;
+            // totalAux += aux;
         }
         //  apply reverb
-        int64_t reverbOut[2] = {0, 0};
-        stepReverb(totalAux, reverbOut);
-        //    add to output and write
-        for (int j = 0; j < 2; j++)
-        {
-            int64_t sample = totalOut[j] + reverbOut[j];
-            if (sample > 32767)
-                sample = 32767;
-            if (sample < -32768)
-                sample = -32768;
-            buffer[i * 2 + j] = (int16_t)(sample);
-        }
-        sampleWithinRow--;
+        // int64_t reverbOut[2] = {0, 0};
+        // stepReverb(totalAux, reverbOut);
+        //     add to output and write
+        synthStates[track].sampleWithinRow = sampleWithinRow;
+        synthStates[track].currentRow = currentRow;
+        synthStates[track].envLevel = envLevel;
+        synthStates[track].envState = envState;
+        synthStates[track].freq = freq;
+        synthStates[track].dropFreq = dropFreq;
+        synthStates[track].oscPhase = oscPhase;
     }
+    for (int i = 0; i < samples; i++)
+    {
+        int64_t out = musicTmpBuffer[i * 2];
+        if (out > 32767)
+            out = 32767;
+        if (out < -32768)
+            out = -32768;
+        buffer[i * 2] = buffer[i * 2 + 1] = (int16_t)(out);
+    }
+    rng = localRng;
 }
