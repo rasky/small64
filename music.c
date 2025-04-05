@@ -360,7 +360,6 @@ void music_render(int16_t *buffer, int32_t samples)
         synthStates[track].filtState[0].low = low;
         synthStates[track].filtState[0].band = band;
     }
-    uint16_t reverbIndex = reverb.index;
     for (int i = 0; i < samples; i++)
     {
         int64_t out = musicTmpBuffer[i * 2] >> 1;
@@ -370,6 +369,5 @@ void music_render(int16_t *buffer, int32_t samples)
             out = -32768;
         buffer[i * 2] = buffer[i * 2 + 1] = (int16_t)(out);
     }
-    reverb.index = reverbIndex;
     rng = localRng;
 }
