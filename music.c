@@ -142,19 +142,12 @@ void music_init()
         PowTable[255 - i] = F;
         F = (F * C) >> 27;
     }
-
-    memset32(synthStates, 0, sizeof(SynthState) * MUSIC_TRACKS);
 }
 
 void music_render(int16_t *buffer, int32_t samples)
 {
     uint64_t localRng = rng;
     // memset32(musicTmpBuffer, 0, sizeof(int32_t) * samples * 2);
-    for (int i = 0; i < samples; i++)
-    {
-        musicTmpBuffer[i * 2] = 0;
-    }
-
     for (int track = 0; track < MUSIC_TRACKS; track++)
     {
         int64_t sampleWithinRow = synthStates[track].sampleWithinRow;
@@ -324,6 +317,7 @@ void music_render(int16_t *buffer, int32_t samples)
     for (int i = 0; i < samples; i++)
     {
         int64_t out = musicTmpBuffer[i * 2] >> 1;
+        musicTmpBuffer[i * 2] = 0;
         if (out > 32767)
             out = 32767;
         if (out < -32768)
