@@ -146,40 +146,6 @@ int64_t stepFilt(FiltState *f, SynthParams *p, int64_t x)
     }
 }
 
-void stepOsc(int64_t *oscStates, OscParam *p, int64_t note, int64_t drop, int64_t dropNote, int64_t shape, int64_t *out)
-{
-    int64_t freq = PowTable[(p->transpose + note) & 255];
-    int64_t dropFreq = PowTable[dropNote + 64];
-    int64_t detune = (int64_t)p->detune - 64;
-    for (int i = 0; i < 2; i++)
-    {
-        int64_t F = freq + ((detune * 983220 * freq) >> 32); // (2**(1/24)-1)* (1 << 25)
-        F = (((F - dropFreq) * drop) >> 27) + dropFreq;
-        oscStates[i] = (oscStates[i] + F) & 0xFFFFFFFF;
-        switch (p->waveform)
-        {
-        default: // sine
-            out[i] = SinTable[(oscStates[i] >> 19) & 8191];
-            break;
-        case 1: // square
-            out[i] = (oscStates[i] & 0x80000000) ? 65536 : -65536;
-            break;
-        case 2:                                                     // saw
-            out[i] = (int64_t)(((int32_t)oscStates[i]) >> 16) << 1; // done so that sign bits are shifted in correctly
-            break;
-        case 3: // triangle
-            int64_t t = (oscStates[i] - 0x80000000) << 1;
-            if (t < 0)
-                t = -t;
-            out[i] = (t >> 15) - 65536;
-            break;
-        }
-        out[i] = waveshape(out[i], shape);
-        out[i] = (out[i] * (int64_t)p->volume) >> 7;
-        detune = -detune;
-    }
-}
-
 int64_t Next(uint64_t *r)
 {
     if (*r == 0)
@@ -306,10 +272,40 @@ void music_render(int16_t *buffer, int32_t samples)
             int64_t e = c->envLevel;
             for (int i = 0; i < 2; i++)
             {
-                int64_t oscO[2] = {0, 0};
-                stepOsc(c->oscStates[i], &p->oscParams[i], c->note, c->drop, p->dropNote, (int64_t)p->shape, oscO);
-                out[0] += oscO[0];
-                out[1] += oscO[1];
+                int64_t res = 0;
+                int64_t *os = c->oscStates[i];
+                OscParam *op = &p->oscParams[i];
+                int64_t freq = PowTable[(op->transpose + c->note) & 255];
+                int64_t dropFreq = PowTable[p->dropNote + 64];
+                int64_t detune = (int64_t)op->detune - 64;
+                for (int i = 0; i < 2; i++)
+                {
+                    int64_t F = freq + ((detune * 983220 * freq) >> 32); // (2**(1/24)-1)* (1 << 25)
+                    F = (((F - dropFreq) * c->drop) >> 27) + dropFreq;
+                    os[i] = (os[i] + F) & 0xFFFFFFFF;
+                    switch (op->waveform)
+                    {
+                    default: // sine
+                        res = SinTable[(os[i] >> 19) & 8191];
+                        break;
+                    case 1: // square
+                        res = (os[i] & 0x80000000) ? 65536 : -65536;
+                        break;
+                    case 2:                                           // saw
+                        res = (int64_t)(((int32_t)os[i]) >> 16) << 1; // done so that sign bits are shifted in correctly
+                        break;
+                    case 3: // triangle
+                        int64_t t = (os[i] - 0x80000000) << 1;
+                        if (t < 0)
+                            t = -t;
+                        res = (t >> 15) - 65536;
+                        break;
+                    }
+                    res = waveshape(res, p->shape);
+                    res = (res * (int64_t)op->volume) >> 7;
+                    out[i] += res;
+                    detune = -detune;
+                }
             }
             c->drop = (c->drop * (65536 - (int64_t)p->pitchDrop)) >> 16;
             for (int i = 0; i < 2; i++)
