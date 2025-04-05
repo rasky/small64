@@ -314,6 +314,7 @@ void music_render(int16_t *buffer, int32_t samples)
             c->drop = (c->drop * (65536 - (int64_t)p->pitchDrop)) >> 16;
             for (int i = 0; i < 2; i++)
             {
+                c->rng = Next(&c->rng);
                 out[i] += (((int64_t)((c->rng % 65536)) - 32768) * (int64_t)p->noise) >> 7;
                 out[i] = (out[i] * e) >> 24;
                 out[i] = stepFilt(&c->filtState[i], p, out[i]);
