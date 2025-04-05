@@ -329,8 +329,8 @@ void music_render(int16_t *buffer, int32_t samples)
             // c->delayState.buffer[c->delayState.index][0] = out[0];
             // c->delayState.buffer[c->delayState.index][1] = out[1];
             // c->delayState.index++;
-            /*aux[0] = (out[0] * (int64_t)p->reverb) >> 7;
-            aux[1] = (out[1] * (int64_t)p->reverb) >> 7;*/
+            aux[0] = (out[0] * (int64_t)p->reverb) >> 7;
+            aux[1] = (out[1] * (int64_t)p->reverb) >> 7;
 
             totalOut[0] += out[0];
             totalOut[1] += out[1];
@@ -339,11 +339,11 @@ void music_render(int16_t *buffer, int32_t samples)
         }
         //  apply reverb
         int64_t reverbOut[2] = {0, 0};
-        // stepReverb(totalAux, reverbOut);
+        stepReverb(totalAux, reverbOut);
         //    add to output and write
         for (int j = 0; j < 2; j++)
         {
-            int64_t sample = totalOut[j]; // + reverbOut[j];
+            int64_t sample = totalOut[j] + reverbOut[j];
             if (sample > 32767)
                 sample = 32767;
             if (sample < -32768)
