@@ -2,7 +2,7 @@
 #include <stdint.h>
 #define SONG_FREQUENCY 44100
 #define MUSIC_BPM 144
-#define MUSIC_TRACKS 4
+#define MUSIC_TRACKS 3
 
 static const char bbsong_data[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
@@ -227,6 +227,8 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t freq = synthStates[track].freq;
         int64_t dropFreq = synthStates[track].dropFreq;
         int64_t oscPhase = synthStates[track].oscPhase;
+        int64_t low = synthStates[track].filtState[0].low;
+        int64_t band = synthStates[track].filtState[0].band;
 
         int64_t attack = nonLinearMap(params[track].attack);
         int64_t decay = nonLinearMap(params[track].decay);
@@ -234,11 +236,16 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t release = nonLinearMap(params[track].release);
         int64_t noise = params[track].noise;
         int64_t pitchDrop = params[track].pitchDrop;
-        int64_t reverbAmount = params[track].reverb;
         int64_t waveform = params[track].oscParams[0].waveform;
         int64_t volume = params[track].oscParams[0].volume;
         int64_t transpose = params[track].oscParams[0].transpose;
         int64_t dropNote = params[track].dropNote;
+
+        int64_t filtFreq2 = (int64_t)(params[track].filtFreq);
+        filtFreq2 *= filtFreq2;
+        filtFreq2 <<= 18;
+        int64_t filtRes = (int64_t)params[track].filtRes << 25;
+        int64_t filtType = params[track].filtType;
 
         for (int i = 0; i < samples; i++)
         {
@@ -321,20 +328,38 @@ void music_render(int16_t *buffer, int32_t samples)
             //}
             freq = ((freq - dropFreq) * (65536 - (int64_t)pitchDrop) >> 16) + dropFreq;
 
-            if (noise)
-            {
-                localRng ^= (localRng << 13);
-                localRng ^= (localRng >> 7);
-                localRng ^= (localRng << 17);
-                out += (((int64_t)(localRng & 65535) - 32768) * (int64_t)noise) >> 7;
-            }
+            /*if (noise)
+             {
+                 localRng ^= (localRng << 13);
+                 localRng ^= (localRng >> 7);
+                 localRng ^= (localRng << 17);
+                 out += (((int64_t)(localRng & 65535) - 32768) * (int64_t)noise) >> 7;
+             }*/
             out = (out * envLevel) >> 24;
+
+            low += (filtFreq2 * band) >> 32;
+            int64_t high = (filtRes * (out - band) >> 32) - low;
+            band += (filtFreq2 * high) >> 32;
+            switch (filtType)
+            {
+            case 0: // low
+                out = low;
+                break;
+            case 1: // high
+                out = high;
+                break;
+            case 2: // band
+                out = band;
+                break;
+            case 3: // notch
+                out = high + low;
+                break;
+            }
             // out = stepFilt(&c->filtState[0], p, out);
             // c->lfoPhase += PowTable[p->lfoRate] & 0xFFFFFFFF;
             // int64_t pan = (int64_t)p->pan * SinTable[(c->lfoPhase >> 19) & 8191] + (1 << 23);
             // out[0] = (out[0] * ((1 << 24) - pan)) >> 24;
             // out[1] = (out[1] * pan) >> 24;
-            out >>= 1;
             //  ping pong delay
             // uint16_t index = c->delayState.index - (uint16_t)((p->delayTime + 1) * 44100 * 60 / (MUSIC_BPM * 48));
             // out[0] += (c->delayState.buffer[index][1] * (int64_t)p->delayAmount) >> 7;
@@ -357,10 +382,12 @@ void music_render(int16_t *buffer, int32_t samples)
         synthStates[track].freq = freq;
         synthStates[track].dropFreq = dropFreq;
         synthStates[track].oscPhase = oscPhase;
+        synthStates[track].filtState[0].low = low;
+        synthStates[track].filtState[0].band = band;
     }
     for (int i = 0; i < samples; i++)
     {
-        int64_t out = musicTmpBuffer[i * 2];
+        int64_t out = musicTmpBuffer[i * 2] >> 1;
         if (out > 32767)
             out = 32767;
         if (out < -32768)
