@@ -8,8 +8,8 @@ MEMORY
     dmem : ORIGIN = 0xA4000000, LENGTH = 4096
     imem : ORIGIN = 0xA4001000, LENGTH = 4096
     rom  : ORIGIN = 0xB0001000, LENGTH = 16384
-    ram  : ORIGIN = 0x80000000, LENGTH = 256*1024
-    uram  : ORIGIN = 0xA0000000, LENGTH = 256*1024
+    ram  : ORIGIN = 0x80000000, LENGTH = 512*1024
+    uram  : ORIGIN = 0xA0000000, LENGTH = 512*1024
 }
 
 SECTIONS {
@@ -45,12 +45,12 @@ SECTIONS {
         __stage2_start = .;
         KEEP(build/demo.o(.text.demo))
         build/demo.o(.text .text.*)
+        build/minilib.o
         build/demo.o(.rodata .rodata.*)
         build/demo.o(.data .data.*)
         build/demo.o(.sdata .sdata.*)
-        build/demo.o(.bss .bss.*)
         build/demo.o(.sbss .sbss.*)
-        build/minilib.o
+        build/demo.o(.bss .bss.*)
         . = ALIGN(8);
     } > ram
 
