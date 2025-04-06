@@ -195,7 +195,8 @@ void music_render(int16_t *buffer, int32_t samples)
                 out = high + low;
                 break;
             }
-            buffer[i * 2 + 1] = buffer[i * 2] += out;
+            buffer[i * 2 + 1] += out;
+            buffer[i * 2] += out;
         }
         s->envLevel = envLevel;
         s->envState = envState;
