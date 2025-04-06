@@ -58,13 +58,13 @@ typedef struct
 // UNINITIALIZED DATA (should be filled with zeros)
 
 int64_t SinTable[8192];
-int64_t PowTable[256];
+int64_t PowTable[8192];
 SynthState synthStates[8];
 int64_t currentRow;
 
 int64_t nonLinearMap(int x)
 {
-    return PowTable[x + 64] >> 15;
+    return PowTable[255 - x - 64] >> 15;
 }
 
 void music_init()
@@ -72,18 +72,14 @@ void music_init()
     const int64_t K = 3294199; // round(math.pi * 2 / 8192 * (1 << 32)) but optimized with matlab
     int64_t X = (int64_t)(1) << 32;
     int64_t Y = 0;
+    int64_t F = 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
+    const int64_t C = 126684666; // round(2**(-1/12)*(1 << 27))
     for (int i = 0; i < 8192; i++)
     {
         SinTable[i] = Y >> 18;
         X -= (Y * K) >> 32;
         Y += (X * K) >> 32;
-    }
-
-    int64_t F = 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
-    const int64_t C = 126684666; // round(2**(-1/12)*(1 << 27))
-    for (int i = 0; i < 256; i++)
-    {
-        PowTable[255 - i] = F;
+        PowTable[i] = F;
         F = (F * C) >> 27;
     }
 }
@@ -119,7 +115,7 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t dropFreq = 7381975;
         if (note > 1)
         {
-            deltaFreq = PowTable[(params->transpose + note) & 255] - dropFreq;
+            deltaFreq = PowTable[255 - (params->transpose + note)] - dropFreq;
         }
         int64_t attack = nonLinearMap(params->attack);
         int64_t decay = nonLinearMap(params->decay);
