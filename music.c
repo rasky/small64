@@ -35,7 +35,7 @@ SynthParams synthParams[] = {
     {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 4, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 102, .delayAmount = 0, .pitchDrop = 128, .dropNote = 57, .lfoAmount = 22},
 };
 
-int32_t musicTmpBuffer[4096]; // out, aux, out, aux, out, aux, ....
+int32_t musicTmpBuffer[8096]; // out, aux, out, aux, out, aux, ....
 int rng = 1;
 
 enum EnvState
@@ -54,8 +54,6 @@ typedef struct
     int64_t deltaFreq;
     int64_t dropFreq;
     int64_t low, band;
-    int64_t sampleWithinRow;
-    int64_t currentRow;
     int64_t paramIndex;
 } SynthState;
 
@@ -64,6 +62,7 @@ typedef struct
 int64_t SinTable[8192];
 int64_t PowTable[256];
 SynthState synthStates[8];
+int64_t currentRow;
 
 int64_t nonLinearMap(int x)
 {
@@ -98,8 +97,6 @@ void music_render(int16_t *buffer, int32_t samples)
     for (int track = 0; track < MUSIC_CHANNELS; track++)
     {
         SynthState *s = &synthStates[track];
-        int64_t sampleWithinRow = s->sampleWithinRow;
-        int64_t currentRow = s->currentRow;
         int64_t envLevel = s->envLevel;
         int32_t envState = s->envState;
         int64_t deltaFreq = s->deltaFreq;
@@ -107,9 +104,34 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t low = s->low;
         int64_t band = s->band;
         int64_t paramIndex = s->paramIndex;
+        uint8_t note = 0;
+        if (currentRow < 580)
+        {
+            note = noteData[track][currentRow];
+            if (note == 0)
+            { // release note
+                envState = Releasing;
+            }
+            else if (note > 1)
+            {
+                paramIndex = 0;
+                if (note >= 128)
+                {
+                    paramIndex++;
+                    note -= 128;
+                }
+                oscPhase = 0;
+                envLevel = 0;
+                envState = Attacking;
+            }
+        }
         // load params from state
         SynthParams *params = &synthParams[track * 2 + paramIndex];
         int64_t dropFreq = PowTable[(64 + params->dropNote) & 255];
+        if (note > 1)
+        {
+            deltaFreq = PowTable[(params->transpose + note) & 255] - dropFreq;
+        }
         int64_t attack = nonLinearMap(params->attack);
         int64_t decay = nonLinearMap(params->decay);
         int64_t sustain = ((int64_t)params->sustain) << 14;
@@ -127,50 +149,6 @@ void music_render(int16_t *buffer, int32_t samples)
         filtFreq2 *= filtFreq2;
         for (int i = 0; i < samples; i++)
         {
-            if (!sampleWithinRow && currentRow < 580)
-            {
-                uint8_t note = noteData[track][currentRow];
-                if (note == 0)
-                { // release note
-                    envState = Releasing;
-                }
-                else if (note > 1)
-                {
-                    paramIndex = 0;
-                    if (note >= 128)
-                    {
-                        paramIndex++;
-                        note -= 128;
-                    }
-                    // should compile into identical code as earlier = good for LZ
-                    params = &synthParams[track * 2 + paramIndex];
-                    dropFreq = PowTable[(64 + params->dropNote) & 255];
-                    attack = nonLinearMap(params->attack);
-                    decay = nonLinearMap(params->decay);
-                    sustain = ((int64_t)params->sustain) << 14;
-                    release = nonLinearMap(params->release);
-                    pitchDrop = (65536 - (int64_t)params->pitchDrop);
-                    waveform = params->waveform;
-                    volume = params->volume;
-                    transpose = params->transpose;
-                    dropNote = params->dropNote;
-                    lfoAmount = params->lfoAmount;
-                    filtType = params->filtType;
-                    filtRes = params->filtRes;
-                    filtFreq2 = params->filtFreq;
-                    delayAmount = params->delayAmount;
-                    filtFreq2 *= filtFreq2;
-                    // end loading params
-                    deltaFreq = PowTable[(params->transpose + note) & 255] - dropFreq;
-                    oscPhase = 0;
-                    envLevel = 0;
-                    envState = Attacking;
-                }
-                currentRow++;
-                sampleWithinRow = SONG_FREQUENCY * 60 / (MUSIC_BPM * 4);
-            }
-            sampleWithinRow--;
-
             if (envState == Attacking)
             {
                 envLevel += attack;
@@ -251,8 +229,6 @@ void music_render(int16_t *buffer, int32_t samples)
             }
             musicTmpBuffer[i * 2] += out;
         }
-        s->sampleWithinRow = sampleWithinRow;
-        s->currentRow = currentRow;
         s->envLevel = envLevel;
         s->envState = envState;
         s->deltaFreq = deltaFreq;
@@ -273,4 +249,5 @@ void music_render(int16_t *buffer, int32_t samples)
         buffer[i * 2] = buffer[i * 2 + 1] = (int16_t)(out);
     }
     rng = localRng;
+    currentRow++;
 }

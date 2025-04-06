@@ -28,7 +28,7 @@
 
 #include "music.c"
 #define AI_FREQUENCY                SONG_FREQUENCY
-#define AI_BUFFER_SIZE              (4096*2)
+#define AI_BUFFER_SIZE              12800
 
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
@@ -154,7 +154,7 @@ void bb_render(int16_t *buffer)
     uint32_t t0 = C0_COUNT();    
     music_render(buffer, AI_BUFFER_SIZE/4);            
     uint32_t t1 = C0_COUNT() - t0;
-    debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
+    //debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
 
 //#include "noise.c"
