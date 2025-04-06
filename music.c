@@ -26,13 +26,13 @@ static const uint8_t noteData[][580] = {
 
 SynthParams synthParams[] = {
     {.attack = 109, .decay = 128, .sustain = 128, .release = 64, .waveform = 0, .transpose = 74, .volume = 119, .filtType = 3, .filtRes = 128, .filtFreq = 29, .delayAmount = 0, .pitchDrop = 83, .dropNote = 33, .lfoAmount = 0},
-    {.attack = 30, .decay = 33, .sustain = 128, .release = 0, .waveform = 4, .transpose = 60, .volume = 35, .filtType = 0, .filtRes = 111, .filtFreq = 34, .delayAmount = 59, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 96},
+    {.attack = 30, .decay = 33, .sustain = 128, .release = 0, .waveform = 3, .transpose = 60, .volume = 35, .filtType = 0, .filtRes = 111, .filtFreq = 34, .delayAmount = 59, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 96},
     {.attack = 102, .decay = 64, .sustain = 64, .release = 52, .waveform = 2, .transpose = 60, .volume = 77, .filtType = 1, .filtRes = 24, .filtFreq = 54, .delayAmount = 32, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 99},
     {.attack = 0, .decay = 128, .sustain = 1, .release = 64, .waveform = 2, .transpose = 60, .volume = 30, .filtType = 2, .filtRes = 64, .filtFreq = 83, .delayAmount = 0, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 0},
     {.attack = 89, .decay = 92, .sustain = 24, .release = 64, .waveform = 1, .transpose = 72, .volume = 33, .filtType = 2, .filtRes = 64, .filtFreq = 83, .delayAmount = 32, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 64},
     {.attack = 64, .decay = 128, .sustain = 128, .release = 128, .waveform = 2, .transpose = 36, .volume = 128, .filtType = 0, .filtRes = 64, .filtFreq = 33, .delayAmount = 0, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 0},
-    {.attack = 111, .decay = 74, .sustain = 0, .release = 64, .waveform = 4, .transpose = 0, .volume = 2, .filtType = 1, .filtRes = 128, .filtFreq = 128, .delayAmount = 1, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 0},
-    {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 4, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 102, .delayAmount = 0, .pitchDrop = 128, .dropNote = 57, .lfoAmount = 22},
+    {.attack = 111, .decay = 74, .sustain = 0, .release = 64, .waveform = 3, .transpose = 0, .volume = 2, .filtType = 1, .filtRes = 128, .filtFreq = 128, .delayAmount = 1, .pitchDrop = 0, .dropNote = 0, .lfoAmount = 0},
+    {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 3, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 102, .delayAmount = 0, .pitchDrop = 128, .dropNote = 57, .lfoAmount = 22},
 };
 
 int32_t musicTmpBuffer[8096]; // out, aux, out, aux, out, aux, ....
@@ -76,7 +76,7 @@ void music_init()
     int64_t Y = 0;
     for (int i = 0; i < 8192; i++)
     {
-        SinTable[i] = Y >> 16;
+        SinTable[i] = Y >> 18;
         X -= (Y * K) >> 32;
         Y += (X * K) >> 32;
     }
@@ -92,8 +92,8 @@ void music_init()
 
 void music_render(int16_t *buffer, int32_t samples)
 {
-    uint64_t localRng = rng;
-    // memset32(musicTmpBuffer, 0, sizeof(int32_t) * samples * 2);
+    int64_t localRng = rng;
+    memset32(buffer, 0, sizeof(int16_t) * samples * 2);
     for (int track = 0; track < MUSIC_CHANNELS; track++)
     {
         SynthState *s = &synthStates[track];
@@ -103,30 +103,22 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t oscPhase = s->oscPhase;
         int64_t low = s->low;
         int64_t band = s->band;
-        int64_t paramIndex = s->paramIndex;
-        uint8_t note = 0;
-        if (currentRow < 580)
+        uint8_t note = noteData[track][currentRow];
+        if (note == 0)
+        { // release note
+            envState = Releasing;
+        }
+        else if (note > 1)
         {
-            note = noteData[track][currentRow];
-            if (note == 0)
-            { // release note
-                envState = Releasing;
-            }
-            else if (note > 1)
-            {
-                paramIndex = 0;
-                if (note >= 128)
-                {
-                    paramIndex++;
-                    note -= 128;
-                }
-                oscPhase = 0;
-                envLevel = 0;
-                envState = Attacking;
-            }
+            s->paramIndex = note & 0x80;
+            note &= 0x7F;
+            oscPhase = 0;
+            envLevel = 0;
+            envState = Attacking;
         }
         // load params from state
-        SynthParams *params = &synthParams[track * 2 + paramIndex];
+        int64_t paramIndex = s->paramIndex;
+        SynthParams *params = &synthParams[track * 2 + (paramIndex >> 7)];
         int64_t dropFreq = PowTable[(64 + params->dropNote) & 255];
         if (note > 1)
         {
@@ -145,7 +137,6 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t filtType = params->filtType;
         int64_t filtRes = params->filtRes;
         int64_t filtFreq2 = params->filtFreq;
-        int64_t delayAmount = params->delayAmount;
         filtFreq2 *= filtFreq2;
         for (int i = 0; i < samples; i++)
         {
@@ -183,27 +174,16 @@ void music_render(int16_t *buffer, int32_t samples)
                 res = SinTable[(oscPhase >> 19) & 8191];
                 break;
             case 1: // square
-                res = (oscPhase & 0x80000000) ? 65535 : -65536;
+                res = oscPhase & 0x80000000 ? 16383 : -16384;
                 break;
             case 2:                                              // saw
-                res = (int64_t)(((int32_t)oscPhase) >> 16) << 1; // done so that sign bits are shifted in correctly
+                res = (int64_t)(((int32_t)oscPhase) >> 16) >> 1; // done so that sign bits are shifted in correctly
                 break;
-            case 3: // triangle
-                int64_t t = ((int64_t)(oscPhase)-0x80000000) << 1;
-                if (t < 0)
-                    t = -t;
-                res = (t >> 15) - 65536;
-                break;
-            case 4:
-                localRng ^= (localRng << 13);
-                localRng ^= (localRng >> 7);
-                localRng ^= (localRng << 17);
-                res = ((int64_t)(localRng & 0x1FFFF) - 0x10000);
+            case 3:
+                localRng *= 18007;
+                res = localRng >> 49;
             }
-            if (pitchDrop > 0)
-            {
-                deltaFreq = deltaFreq * pitchDrop >> 16;
-            }
+            deltaFreq = deltaFreq * pitchDrop >> 16;
 
             int64_t x = (res * volume * envLevel) >> 28;
 
@@ -227,7 +207,7 @@ void music_render(int16_t *buffer, int32_t samples)
                 out = high + low;
                 break;
             }
-            musicTmpBuffer[i * 2] += out;
+            buffer[i * 2 + 1] = buffer[i * 2] += out;
         }
         s->envLevel = envLevel;
         s->envState = envState;
@@ -236,17 +216,6 @@ void music_render(int16_t *buffer, int32_t samples)
         s->oscPhase = oscPhase;
         s->low = low;
         s->band = band;
-        s->paramIndex = paramIndex;
-    }
-    for (int i = 0; i < samples; i++)
-    {
-        int64_t out = musicTmpBuffer[i * 2] >> 1;
-        musicTmpBuffer[i * 2] = 0;
-        if (out > 32767)
-            out = 32767;
-        if (out < -32768)
-            out = -32768;
-        buffer[i * 2] = buffer[i * 2 + 1] = (int16_t)(out);
     }
     rng = localRng;
     currentRow++;
