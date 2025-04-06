@@ -35,7 +35,6 @@ SynthParams synthParams[] = {
     {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 3, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 102, .delayAmount = 0, .pitchDrop = 128, .dropNote = 57, .lfoAmount = 22},
 };
 
-int32_t musicTmpBuffer[8096]; // out, aux, out, aux, out, aux, ....
 int rng = 1;
 
 enum EnvState
@@ -52,7 +51,6 @@ typedef struct
     int64_t envLevel;
     int64_t envState;
     int64_t deltaFreq;
-    int64_t dropFreq;
     int64_t low, band;
     int64_t paramIndex;
 } SynthState;
@@ -112,14 +110,13 @@ void music_render(int16_t *buffer, int32_t samples)
         {
             s->paramIndex = note & 0x80;
             note &= 0x7F;
-            oscPhase = 0;
             envLevel = 0;
             envState = Attacking;
         }
         // load params from state
         int64_t paramIndex = s->paramIndex;
         SynthParams *params = &synthParams[track * 2 + (paramIndex >> 7)];
-        int64_t dropFreq = PowTable[(64 + params->dropNote) & 255];
+        int64_t dropFreq = 7381975;
         if (note > 1)
         {
             deltaFreq = PowTable[(params->transpose + note) & 255] - dropFreq;
@@ -128,7 +125,7 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t decay = nonLinearMap(params->decay);
         int64_t sustain = ((int64_t)params->sustain) << 14;
         int64_t release = nonLinearMap(params->release);
-        int64_t pitchDrop = (65536 - (int64_t)params->pitchDrop);
+        int64_t pitchDrop = (int64_t)params->pitchDrop;
         int64_t waveform = params->waveform;
         int64_t volume = params->volume;
         int64_t transpose = params->transpose;
@@ -183,7 +180,7 @@ void music_render(int16_t *buffer, int32_t samples)
                 localRng *= 18007;
                 res = localRng >> 49;
             }
-            deltaFreq = deltaFreq * pitchDrop >> 16;
+            deltaFreq -= deltaFreq * pitchDrop >> 16;
 
             int64_t x = (res * volume * envLevel) >> 28;
 
@@ -212,7 +209,6 @@ void music_render(int16_t *buffer, int32_t samples)
         s->envLevel = envLevel;
         s->envState = envState;
         s->deltaFreq = deltaFreq;
-        s->dropFreq = dropFreq;
         s->oscPhase = oscPhase;
         s->low = low;
         s->band = band;
