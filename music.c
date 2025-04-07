@@ -18,13 +18,13 @@ static const uint8_t noteData[] = {192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 SynthParams synthParams[] = {
     {.sustain = 66, .release = 32, .waveform = 0, .transpose = 127 - 69, .volume = 128, .filtType = 0, .filtRes = 128, .filtFreq = 2, .pitchDrop = 81},
-    {.sustain = 128, .release = 128, .waveform = 3, .transpose = 127 - 58, .volume = 35, .filtType = 1, .filtRes = 111, .filtFreq = 2, .pitchDrop = 0},
-    {.sustain = 33, .release = 67, .waveform = 2, .transpose = 127 - 58, .volume = 39, .filtType = 0, .filtRes = 24, .filtFreq = 23, .pitchDrop = 0},
-    {.sustain = 104, .release = 0, .waveform = 2, .transpose = 127 - 58, .volume = 22, .filtType = 1, .filtRes = 64, .filtFreq = 64, .pitchDrop = 0},
-    {.sustain = 0, .release = 64, .waveform = 1, .transpose = 127 - 70, .volume = 33, .filtType = 1, .filtRes = 64, .filtFreq = 54, .pitchDrop = 0},
-    {.sustain = 66, .release = 32, .waveform = 2, .transpose = 127 - 34, .volume = 57, .filtType = 1, .filtRes = 64, .filtFreq = 4, .pitchDrop = 0},
-    {.sustain = 15, .release = 53, .waveform = 3, .transpose = 0, .volume = 6, .filtType = 0, .filtRes = 128, .filtFreq = 128, .pitchDrop = 0},
-    {.sustain = 0, .release = 70, .waveform = 3, .transpose = 0, .volume = 62, .filtType = 1, .filtRes = 64, .filtFreq = 81, .pitchDrop = 128},
+    {.sustain = 128, .release = 128, .waveform = 2, .transpose = 127 - 58, .volume = 35, .filtType = 1, .filtRes = 111, .filtFreq = 2, .pitchDrop = 0},
+    {.sustain = 33, .release = 67, .waveform = 1, .transpose = 127 - 58, .volume = 39, .filtType = 0, .filtRes = 24, .filtFreq = 23, .pitchDrop = 0},
+    {.sustain = 104, .release = 0, .waveform = 1, .transpose = 127 - 58, .volume = 22, .filtType = 1, .filtRes = 64, .filtFreq = 64, .pitchDrop = 0},
+    {.sustain = 0, .release = 64, .waveform = 0, .transpose = 127 - 70, .volume = 64, .filtType = 1, .filtRes = 64, .filtFreq = 54, .pitchDrop = 0},
+    {.sustain = 66, .release = 32, .waveform = 1, .transpose = 127 - 34, .volume = 57, .filtType = 1, .filtRes = 64, .filtFreq = 4, .pitchDrop = 0},
+    {.sustain = 15, .release = 53, .waveform = 2, .transpose = 0, .volume = 6, .filtType = 0, .filtRes = 128, .filtFreq = 128, .pitchDrop = 0},
+    {.sustain = 0, .release = 70, .waveform = 2, .transpose = 0, .volume = 62, .filtType = 1, .filtRes = 64, .filtFreq = 81, .pitchDrop = 0},
 };
 
 int64_t rng = 1;
@@ -126,13 +126,10 @@ void music_render(int16_t *buffer, int32_t samples)
             default: // sine
                 res = SinTable[(oscPhase >> 19) & 8191];
                 break;
-            case 1: // square
-                res = (oscPhase & 0x80000000) >> 16;
-                break;
-            case 2:                                              // saw
+            case 1:                                              // saw
                 res = (int64_t)(((int32_t)oscPhase) >> 16) >> 1; // done so that sign bits are shifted in correctly
                 break;
-            case 3:
+            case 2:
                 localRng *= 18007;
                 res = localRng >> 49;
             }
