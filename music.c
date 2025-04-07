@@ -22,14 +22,14 @@ static const uint8_t noteData[][580] = {
 };
 
 SynthParams synthParams[] = {
-    {.attack = 109, .decay = 128, .sustain = 128, .release = 64, .waveform = 0, .transpose = 74, .volume = 119, .filtType = 3, .filtRes = 128, .filtFreq = 29, .pitchDrop = 83},
-    {.attack = 30, .decay = 33, .sustain = 128, .release = 0, .waveform = 3, .transpose = 60, .volume = 35, .filtType = 0, .filtRes = 111, .filtFreq = 34, .pitchDrop = 0},
-    {.attack = 102, .decay = 64, .sustain = 64, .release = 52, .waveform = 2, .transpose = 60, .volume = 77, .filtType = 1, .filtRes = 24, .filtFreq = 54, .pitchDrop = 0},
-    {.attack = 0, .decay = 128, .sustain = 1, .release = 64, .waveform = 2, .transpose = 60, .volume = 30, .filtType = 2, .filtRes = 64, .filtFreq = 83, .pitchDrop = 0},
-    {.attack = 89, .decay = 92, .sustain = 24, .release = 64, .waveform = 1, .transpose = 72, .volume = 33, .filtType = 2, .filtRes = 64, .filtFreq = 83, .pitchDrop = 0},
-    {.attack = 64, .decay = 128, .sustain = 128, .release = 128, .waveform = 2, .transpose = 36, .volume = 128, .filtType = 0, .filtRes = 64, .filtFreq = 33, .pitchDrop = 0},
+    {.attack = 109, .decay = 128, .sustain = 128, .release = 64, .waveform = 0, .transpose = 74, .volume = 119, .filtType = 3, .filtRes = 128, .filtFreq = 7, .pitchDrop = 83},
+    {.attack = 30, .decay = 33, .sustain = 128, .release = 0, .waveform = 3, .transpose = 60, .volume = 35, .filtType = 0, .filtRes = 111, .filtFreq = 9, .pitchDrop = 0},
+    {.attack = 102, .decay = 64, .sustain = 64, .release = 52, .waveform = 2, .transpose = 60, .volume = 77, .filtType = 1, .filtRes = 24, .filtFreq = 23, .pitchDrop = 0},
+    {.attack = 0, .decay = 128, .sustain = 1, .release = 64, .waveform = 2, .transpose = 60, .volume = 30, .filtType = 2, .filtRes = 64, .filtFreq = 54, .pitchDrop = 0},
+    {.attack = 89, .decay = 92, .sustain = 24, .release = 64, .waveform = 1, .transpose = 72, .volume = 33, .filtType = 2, .filtRes = 64, .filtFreq = 54, .pitchDrop = 0},
+    {.attack = 64, .decay = 128, .sustain = 128, .release = 128, .waveform = 2, .transpose = 36, .volume = 128, .filtType = 0, .filtRes = 64, .filtFreq = 9, .pitchDrop = 0},
     {.attack = 111, .decay = 74, .sustain = 0, .release = 64, .waveform = 3, .transpose = 0, .volume = 2, .filtType = 1, .filtRes = 128, .filtFreq = 128, .pitchDrop = 0},
-    {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 3, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 102, .pitchDrop = 0},
+    {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 3, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 81, .pitchDrop = 0},
 };
 
 int rng = 1;
@@ -124,8 +124,7 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t transpose = params->transpose;
         int64_t filtType = params->filtType;
         int64_t filtRes = params->filtRes;
-        int64_t filtFreq2 = params->filtFreq;
-        filtFreq2 *= filtFreq2;
+        int64_t filtFreq = params->filtFreq;
         for (int i = 0; i < samples; i++)
         {
             if (envState == Attacking)
@@ -175,9 +174,9 @@ void music_render(int16_t *buffer, int32_t samples)
 
             int64_t x = (res * volume * envLevel) >> 28;
 
-            low += (filtFreq2 * band) >> 14;
+            low += (filtFreq * band) >> 7;
             int64_t high = (filtRes * (x - band) >> 7) - low;
-            band += (filtFreq2 * high) >> 14;
+            band += (filtFreq * high) >> 7;
             int64_t out;
             switch (filtType)
             {
