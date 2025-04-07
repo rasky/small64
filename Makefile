@@ -30,7 +30,7 @@ N64_MKASSET = $(N64_ROOTDIR)/bin/mkasset
 
 N64_CFLAGS =  -march=vr4300 -mtune=vr4300 -MMD
 N64_CFLAGS += -DN64 -Os -Wall -Wno-error=deprecated-declarations -fdiagnostics-color=always
-N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections
+N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections -fno-tree-loop-optimize 
 N64_CFLAGS += -G0 # gp is not initialized (don't use it)
 N64_CFLAGS += -mabi=32 -mgp32 -mfp32 -msingle-float # Can't compile for 64bit ABI because DMEM/IMEM don't support 64-bit access
 N64_CFLAGS += -ffast-math -ftrapping-math -fno-associative-math
