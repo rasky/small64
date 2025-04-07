@@ -86,10 +86,6 @@ void music_render(int16_t *buffer, int32_t samples)
         if (note)
         {
             s->paramIndex = note;
-            note &= 0x7F;
-            envSustain = 1 << 21;
-            envLevel = 1 << 21;
-            oscPhase = 0;
         }
         // load params from state
         int64_t paramIndex = s->paramIndex;
@@ -97,6 +93,10 @@ void music_render(int16_t *buffer, int32_t samples)
         const int64_t dropFreq = 0x700000; // rounded into nice hex number: 7381975;
         if (note)
         {
+            note &= 0x7F;
+            envSustain = 1 << 21;
+            envLevel = 1 << 21;
+            oscPhase = 0;
             freq = PowTable[255 - (params->transpose + note)];
         }
         int64_t sustain = nonLinearMap(params->sustain);
