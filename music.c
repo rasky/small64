@@ -3,6 +3,7 @@
 #define SONG_FREQUENCY 32000
 #define MUSIC_BPM 144
 #define MUSIC_CHANNELS 4
+#define MUSIC_LENGTH 1092
 
 static const char bbsong_data[] = "80a50a80a50a805af0a50bf1a73cf3c7g0a80ag0a80ag08ag0a80ag0f137c3578db5db8da5dbfd5a7ce3ce7ce3ec875fg0a80ag0a80ag08ag0a80ag0f137c357";
 
@@ -159,7 +160,7 @@ void music_render(int16_t *buffer, int32_t samples)
         s->oscPhase = oscPhase;
         s->low = low;
         s->band = band;
-        pos += 1092;
+        pos += MUSIC_LENGTH;
     }
     rng = localRng;
     currentRow++;
