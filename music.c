@@ -43,7 +43,7 @@ typedef struct
 
 int64_t SinTable[8192];
 int64_t PowTable[8192];
-SynthState synthStates[8];
+SynthState synthStates[MUSIC_CHANNELS];
 int64_t currentRow;
 
 int64_t nonLinearMap(int x)
