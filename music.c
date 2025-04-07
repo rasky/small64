@@ -154,7 +154,7 @@ void music_render(int16_t *buffer, int32_t samples)
             // for (int i = 0; i < 1; i++)
             //            {
             int64_t res;
-            oscPhase += freq;
+            oscPhase += freq -= (freq - dropFreq) * pitchDrop >> 16;
             switch (waveform)
             {
             default: // sine
@@ -170,7 +170,6 @@ void music_render(int16_t *buffer, int32_t samples)
                 localRng *= 18007;
                 res = localRng >> 49;
             }
-            freq -= (freq - dropFreq) * pitchDrop >> 16;
 
             int64_t x = (res * volume * envLevel) >> 28;
 
