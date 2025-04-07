@@ -32,7 +32,7 @@ SynthParams synthParams[] = {
     {.attack = 128, .decay = 27, .sustain = 0, .release = 79, .waveform = 3, .transpose = 0, .volume = 32, .filtType = 2, .filtRes = 64, .filtFreq = 81, .pitchDrop = 0},
 };
 
-int rng = 1;
+int64_t rng = 1;
 
 enum EnvState
 {
@@ -69,7 +69,7 @@ void music_init()
     const int64_t K = 3294199; // round(math.pi * 2 / 8192 * (1 << 32)) but optimized with matlab
     int64_t X = (int64_t)(1) << 32;
     int64_t Y = 0;
-    int64_t F = 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
+    int64_t F = 0xfcd000000;     // 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
     const int64_t C = 126684666; // round(2**(-1/12)*(1 << 27))
     for (int i = 0; i < 8192; i++)
     {
@@ -101,7 +101,7 @@ void music_render(int16_t *buffer, int32_t samples)
         }
         else if (note > 1)
         {
-            s->paramIndex = note & 0x80;
+            s->paramIndex = note;
             note &= 0x7F;
             envLevel = 0;
             envState = Attacking;
@@ -109,7 +109,7 @@ void music_render(int16_t *buffer, int32_t samples)
         // load params from state
         int64_t paramIndex = s->paramIndex;
         SynthParams *params = &synthParams[track * 2 + (paramIndex >> 7)];
-        const int64_t dropFreq = 7381975;
+        const int64_t dropFreq = 0x700000; // rounded into nice hex number: 7381975;
         if (note > 1)
         {
             freq = PowTable[255 - (params->transpose + note)];
