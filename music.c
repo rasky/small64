@@ -102,7 +102,7 @@ void music_render(int16_t *buffer, int32_t samples)
         }
         int64_t sustain = nonLinearMap(params->sustain);
         int64_t release = nonLinearMap(params->release);
-        int64_t pitchDrop = (int64_t)params->pitchDrop;
+        int64_t pitchDrop = params->pitchDrop;
         int64_t waveform = params->waveform;
         int64_t volume = params->volume;
         int64_t transpose = params->transpose;
@@ -123,12 +123,13 @@ void music_render(int16_t *buffer, int32_t samples)
             oscPhase += freq -= (freq - dropFreq) * pitchDrop >> 16;
             switch (waveform)
             {
-            default: // sine
+            case 0:
                 res = SinTable[(oscPhase >> 19) & 8191];
                 break;
             case 1:                                         // saw
                 res = (int64_t)(((int32_t)oscPhase) >> 16); // done so that sign bits are shifted in correctly
                 break;
+            default:
             case 2:
                 localRng *= 18007;
                 res = localRng >> 48;
