@@ -19,13 +19,13 @@ static const uint8_t noteData[] = {192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 SynthParams synthParams[] = {
     {.sustain = 66, .release = 32, .waveform = 0, .transpose = 57, .volume = 99, .filtType = 0, .filtFreq = 2, .pitchDrop = 83},
-    {.sustain = 128, .release = 128, .waveform = 2, .transpose = 69, .volume = 9, .filtType = 1, .filtFreq = 38, .pitchDrop = 0},
+    {.sustain = 128, .release = 128, .waveform = 2, .transpose = 69, .volume = 9 * 2, .filtType = 1, .filtFreq = 38, .pitchDrop = 0},
     {.sustain = 0, .release = 68, .waveform = 1, .transpose = 69, .volume = 18, .filtType = 0, .filtFreq = 11, .pitchDrop = 0},
-    {.sustain = 104, .release = 0, .waveform = 1, .transpose = 69, .volume = 22, .filtType = 1, .filtFreq = 86, .pitchDrop = 0},
-    {.sustain = 0, .release = 64, .waveform = 0, .transpose = 57, .volume = 96, .filtType = 1, .filtFreq = 32, .pitchDrop = 0},
-    {.sustain = 66, .release = 32, .waveform = 1, .transpose = 93, .volume = 96, .filtType = 1, .filtFreq = 3, .pitchDrop = 0},
+    {.sustain = 104, .release = 0, .waveform = 1, .transpose = 69, .volume = 22 * 2, .filtType = 1, .filtFreq = 86, .pitchDrop = 0},
+    {.sustain = 0, .release = 64, .waveform = 0, .transpose = 57, .volume = 96 * 2, .filtType = 1, .filtFreq = 32, .pitchDrop = 0},
+    {.sustain = 66, .release = 32, .waveform = 1, .transpose = 93, .volume = 96 * 2, .filtType = 1, .filtFreq = 3, .pitchDrop = 0},
     {.sustain = 0, .release = 53, .waveform = 2, .transpose = 0, .volume = 3, .filtType = 0, .filtFreq = 128, .pitchDrop = 0},
-    {.sustain = 0, .release = 64, .waveform = 2, .transpose = 0, .volume = 22, .filtType = 1, .filtFreq = 81, .pitchDrop = 0},
+    {.sustain = 0, .release = 64, .waveform = 2, .transpose = 0, .volume = 22 * 2, .filtType = 1, .filtFreq = 81, .pitchDrop = 0},
 };
 
 int64_t rng = 1;
@@ -134,11 +134,11 @@ void music_render(int16_t *buffer, int32_t samples)
                 res = localRng >> 48;
             }
 
-            int64_t x = (res * volume * envLevel) >> 28;
+            int64_t x = (res * volume * envLevel) >> 29;
 
-            low += (filtFreq * band) >> 7;
-            int64_t high = ((x - band) >> 1) - low;
-            band += (filtFreq * high) >> 7;
+            low += (filtFreq * band) >> 6;
+            int64_t high = x - band - low;
+            band += (filtFreq * high) >> 8;
             int64_t out;
             switch (filtType)
             {
