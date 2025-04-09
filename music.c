@@ -124,7 +124,7 @@ void music_render(int16_t *buffer, int32_t samples)
             switch (waveform)
             {
             case 0:
-                res = SinTable[(oscPhase >> 19) & 8191];
+                res = SinTable[(uint32_t)oscPhase >> 19];
                 break;
             case 1:                                         // saw
                 res = (int64_t)(((int32_t)oscPhase) >> 16); // done so that sign bits are shifted in correctly
@@ -143,10 +143,10 @@ void music_render(int16_t *buffer, int32_t samples)
             int64_t out;
             switch (filtType)
             {
-            default:
             case 0: // high
                 out = high;
                 break;
+            default:
             case 1: // band
                 out = band;
                 break;
