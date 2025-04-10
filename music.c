@@ -77,15 +77,15 @@ void music_render(int16_t *buffer, int32_t samples)
     for (int track = 0; track < MUSIC_CHANNELS; track++)
     {
         SynthState *s = &synthStates[track];
+        int64_t oscPhase = s->oscPhase;
         int64_t envLevel = s->envLevel;
         int64_t envSustain = s->envSustain;
         int64_t freq = s->freq;
-        int64_t oscPhase = s->oscPhase;
         int64_t low = s->low;
         int64_t band = s->band;
+        int64_t paramIndex = s->paramIndex;
         int64_t note = noteData[pos];
         // load params from state
-        int64_t paramIndex = s->paramIndex;
         if (note)
         {
             paramIndex = note >> 7;
@@ -152,13 +152,13 @@ void music_render(int16_t *buffer, int32_t samples)
             buffer[i * 2 + 1] += out;
             buffer[i * 2] += out;
         }
-        s->paramIndex = paramIndex;
+        s->oscPhase = oscPhase;
         s->envLevel = envLevel;
         s->envSustain = envSustain;
         s->freq = freq;
-        s->oscPhase = oscPhase;
         s->low = low;
         s->band = band;
+        s->paramIndex = paramIndex;
         pos += MUSIC_LENGTH;
     }
     rng = localRng;
