@@ -19,7 +19,7 @@ static const uint8_t noteData[] = {192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 SynthParams synthParams[] = {
     {.sustain = 66 + 3, .release = 32 + 3, .waveform = 0, .freqMult = 8, .volume = 99 / 2, .filtType = 0, .filtFreq = 2, .pitchDrop = 83},
-    {.sustain = 128 + 3, .release = 128 + 3, .waveform = 2, .freqMult = 4, .volume = 9 * 2, .filtType = 1, .filtFreq = 38, .pitchDrop = 0},
+    {.sustain = 122, .release = 122, .waveform = 2, .freqMult = 4, .volume = 9 * 2, .filtType = 1, .filtFreq = 38, .pitchDrop = 0},
     {.sustain = 0 + 3, .release = 68 + 3, .waveform = 1, .freqMult = 4, .volume = 18, .filtType = 0, .filtFreq = 11, .pitchDrop = 0},
     {.sustain = 104 + 3, .release = 0 + 3, .waveform = 1, .freqMult = 4, .volume = 22 * 2, .filtType = 1, .filtFreq = 86, .pitchDrop = 0},
     {.sustain = 0 + 3, .release = 64 + 3, .waveform = 0, .freqMult = 8, .volume = 96 * 2 / 2, .filtType = 1, .filtFreq = 32, .pitchDrop = 0},
@@ -47,25 +47,20 @@ int64_t PowTable[8192];
 SynthState synthStates[MUSIC_CHANNELS];
 int64_t currentRow;
 
-int64_t nonLinearMap(int x)
-{
-    return PowTable[x + 93] >> 14;
-}
-
 void music_init()
 {
     const int64_t K = 3294199; // round(math.pi * 2 / 8192 * (1 << 32)) but optimized with matlab
     int64_t X = (int64_t)(1) << 32;
     int64_t Y = 0;
-    int64_t F = 0xfcd000000;     // 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
-    const int64_t C = 126684666; // round(2**(-1/12)*(1 << 27))
+    int64_t F = 0x12d00000;       // 67878804062;     // 2**((64+127-69)/12)*440/32000*(1 << 32)
+    const int64_t C = 4053909305; // round(2**(-1/12)*(1 << 32))
     for (int i = 0; i < 8192; i++)
     {
         SinTable[i] = Y;
         X -= (Y * K) >> 32;
         Y += (X * K) >> 32;
         PowTable[i] = F;
-        F = (F * C) >> 27;
+        F = (F * C) >> 32;
     }
 }
 
@@ -93,13 +88,13 @@ void music_render(int16_t *buffer, int32_t samples)
             envSustain = 1 << 21;
             envLevel = 1 << 21;
             oscPhase = 0;
-            freq = PowTable[note + 93];
+            freq = PowTable[note];
         }
         SynthParams *params = &synthParams[track * 2 + paramIndex];
         const int64_t dropFreq = 0x700000 / 8; // rounded into nice hex number: 7381975;
         int64_t freqMult = params->freqMult;
-        int64_t sustain = nonLinearMap(params->sustain);
-        int64_t release = nonLinearMap(params->release);
+        int64_t sustain = PowTable[params->sustain + 168];
+        int64_t release = PowTable[params->release + 168];
         int64_t pitchDrop = params->pitchDrop;
         int64_t waveform = params->waveform;
         int64_t volume = params->volume;
