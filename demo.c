@@ -120,6 +120,7 @@ static void dp_wait(void)
     while (*DP_STATUS & DP_STATUS_PIPE_BUSY) {};
 }
 
+__attribute__((noinline))
 static void dp_send(void *dl, void *dl_end)
 {
     *DP_START = (uint32_t)dl;
@@ -184,8 +185,7 @@ void demo(void)
 
         if (framecount > 450)
         {
-            fracgen_partial(TEXTURE_BUFFER);
-            fracgen_draw(TEXTURE_BUFFER);
+            fracgen_draw();
         }
 
         if (framecount > 700) {

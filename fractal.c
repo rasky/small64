@@ -10,9 +10,7 @@
 #define CHUNK_HEIGHT     44
 
 static int texgen_framecount = 0;
-static int tbuf_calc_idx = 0;
-static int tbuf_calc_frame = 0;
-static int tbuf_draw_frame = BITMAP_WIDTH*BITMAP_HEIGHT;
+static uint8_t* tbuf_calc_frame = TEXTURE_BUFFER;
 
 __attribute__((noinline))
 static void fracgen_noisy(uint8_t *tex, int idx, int w, int h)
@@ -47,7 +45,6 @@ static void fracgen_noisy(uint8_t *tex, int idx, int w, int h)
     }
 }
 
-__attribute__((noinline))
 static void fracgen(uint8_t *tex, int idx, int w, int h)
 {
     // tex = (void*)(((uint32_t)tex & 0x1FFFFFFF) | 0x80000000);
@@ -82,21 +79,6 @@ static void fracgen(uint8_t *tex, int idx, int w, int h)
     }
 }
 
-static void fracgen_partial(uint8_t *tex)
-{
-    const int NUM_SPLITS = 2;
-    int tbuf_offset = tbuf_calc_idx * BITMAP_WIDTH*BITMAP_HEIGHT/NUM_SPLITS;
-    fracgen(tex + tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH, BITMAP_HEIGHT/NUM_SPLITS);
-
-    tbuf_calc_idx++;
-    if (tbuf_calc_idx == NUM_SPLITS) {
-        tbuf_calc_idx = 0;
-        tbuf_draw_frame ^= BITMAP_WIDTH*BITMAP_HEIGHT;
-        tbuf_calc_frame ^= BITMAP_WIDTH*BITMAP_HEIGHT;
-        texgen_framecount++;
-    }
-}
-
 #define DRAW_BITMAP_CHUNK(n) \
     RdpLoadTileI(TILE0, 0, MAX(CHUNK_HEIGHT*n-1, 0), BITMAP_WIDTH, MIN(CHUNK_HEIGHT*(n+1)+1, BITMAP_HEIGHT)), \
     RdpSyncLoad(), \
@@ -104,7 +86,7 @@ static void fracgen_partial(uint8_t *tex)
     RdpTextureRectangle2F(0, CHUNK_HEIGHT*n, 0.25f, 0.5f)
 
 static uint64_t dl_draw_bitmap[] = {
-    [0] = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 0, BITMAP_WIDTH),
+    [0] = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, (uint32_t)TEXTURE_BUFFER, BITMAP_WIDTH),
     RdpSetOtherModes(SOM_CYCLE_2 | SOM_SAMPLE_BILINEAR | SOM_Z_WRITE | SOM_ZSOURCE_PRIM | SOM_RGBDITHER_BAYER),
     RdpSetCombine(RDPQ_COMBINER2(
         (TEX0,0,PRIM,0), (0,0,0,1),
@@ -122,11 +104,19 @@ static uint64_t dl_draw_bitmap[] = {
 
 #define dl_draw_bitmap_cnt  (sizeof(dl_draw_bitmap) / sizeof(uint64_t))
 
-__attribute__((noinline))
-static void fracgen_draw(uint8_t *tex)
+static void fracgen_draw(void)
 {
-    uint32_t *udl = UncachedAddr(dl_draw_bitmap);
-    udl[1] = (uint32_t)(tex + tbuf_draw_frame);
+    int tbuf_offset = (framecount & 1) * BITMAP_WIDTH*BITMAP_HEIGHT/2;
+    fracgen(tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH, BITMAP_HEIGHT/2);
+
+    if ((framecount & 1)) {
+        texgen_framecount++;
+
+        uint32_t *udl = UncachedAddr(dl_draw_bitmap);
+        udl[1] = (uint32_t)tbuf_calc_frame;
+
+        tbuf_calc_frame = (void*)((uint32_t)tbuf_calc_frame ^ (BITMAP_WIDTH*BITMAP_HEIGHT));
+    }
 
     dp_send(dl_draw_bitmap, dl_draw_bitmap + dl_draw_bitmap_cnt);
 }
