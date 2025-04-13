@@ -8,6 +8,12 @@
 #include "rdpq_macros.h"
 #include <math.h>
 
+#ifdef DEBUG
+#define DEBUG_NOINLINE   __attribute__((noinline))
+#else
+#define DEBUG_NOINLINE
+#endif
+
 #define UNCACHED    __attribute__((__section__(".uncached"), __aligned__(16)))
 
 #define SWAP(a, b)  ({ typeof(a) _tmp = a; a = b; b = _tmp; })
@@ -47,17 +53,17 @@ int vi_buffer_draw_idx;
 int framecount;
 const uint32_t *vi_regs_default;
 
-static void vi_init(void)
+static void vi_reset(void)
 {
     static const uint32_t vi_regs_p[3][7] =  {
-    {   /* PAL */   0x0404233a, 0x00000271, 0x00150c69,
-        0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b },
-    {   /* NTSC */  0x03e52239, 0x0000020d, 0x00000c15,
-        0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204 },
-    {   /* MPAL */  0x04651e39, 0x0000020d, 0x00040c11,
-        0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204 },
+        {   /* PAL */   0x0404233a, 0x00000271, 0x00150c69,
+            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b },
+        {   /* NTSC */  0x03e52239, 0x0000020d, 0x00000c15,
+            0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204 },
+        {   /* MPAL */  0x04651e39, 0x0000020d, 0x00040c11,
+            0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204 },
     };
-
+    
     volatile uint32_t* regs = (uint32_t*)0xA4400000;
     regs[1] = (uint32_t)FB_BUFFER_0;
     regs[2] = 320;
@@ -69,8 +75,12 @@ static void vi_init(void)
     #pragma GCC unroll 0
     for (int reg=0; reg<7; reg++)
         regs[reg+5] = vi_regs_p[tv_type][reg];
-    regs[0] = sys_bbplayer() ? 0x1202 : 0x3202;
+    regs[0] = sys_bbplayer() ? 0x1202 : 0x3202;    
+}
 
+static void vi_init(void)
+{
+    vi_reset();
     vi_buffer_draw = FB_BUFFER_0;
     vi_buffer_show = FB_BUFFER_1;
 }
@@ -175,13 +185,14 @@ void demo(void)
 
     //skip to a certain scene:
     //framecount=450;
+    int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
         framecount++;
-        draw_intro_setup();
+        intro_phidx = draw_intro_setup();
         
         dp_begin_frame();
-        draw_intro();
+        draw_intro(intro_phidx);
 
         if (framecount > 450)
         {

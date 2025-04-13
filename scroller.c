@@ -83,25 +83,22 @@ void draw_scroller(uint16_t *FB)
 }
 #endif
 
-static int intro_phidx = 0;
-
-static void draw_intro_setup(void)
+DEBUG_NOINLINE
+static int draw_intro_setup(void)
 {
     static bool visible = false;
     volatile uint32_t* regs = (uint32_t*)0xA4400000;
 
     int fc = framecount;
-    intro_phidx = fc >> 7;
+    int intro_phidx = fc >> 7;
     if (intro_phidx > 2) {
-        *VI_H_VIDEO = vi_regs_default[4];
-        *VI_X_SCALE = 0x200;
-        *VI_Y_SCALE = 0x400;
-        return;
+        vi_reset();
+        return intro_phidx;
     }
     *VI_ORIGIN += 0x40;
 
-    int rand = random_u32();
-    if ((visible && (rand&0xff) < 32) || fc == 1) {
+    unsigned int rand = C0_COUNT();
+    if ((visible && (rand&0xff) < 32)) {
         visible = false;
         *VI_H_VIDEO = 0x0;
     } else if (!visible && (rand&0xff) < 8) {
@@ -110,11 +107,12 @@ static void draw_intro_setup(void)
         *VI_Y_SCALE = 0x80 + ((rand>>16) & 0x7F);
         *VI_H_VIDEO = vi_regs_default[4];
     }
+
+    return intro_phidx;
 }
 
-static void draw_intro(void)
+static void draw_intro(int phidx)
 {
-    int phidx = intro_phidx;
     if (phidx > 2) return;
     draw_text(colors[phidx], phrases+phrases_off[phidx], phrases_off[phidx+1] - phrases_off[phidx], 120, 8);
 }
