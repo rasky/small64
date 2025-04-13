@@ -53,28 +53,41 @@ int vi_buffer_draw_idx;
 int framecount;
 const uint32_t *vi_regs_default;
 
+#define FB_WIDTH      320
+#define FB_HEIGHT     240
+#define FB_SCALE_X    (FB_WIDTH * 1024 / 640)
+#define FB_SCALE_Y    (FB_HEIGHT * 1024 / 240)
+
 static void vi_reset(void)
 {
-    static const uint32_t vi_regs_p[3][7] =  {
-        {   /* PAL */   0x0404233a, 0x00000271, 0x00150c69,
-            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b },
-        {   /* NTSC */  0x03e52239, 0x0000020d, 0x00000c15,
-            0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204 },
-        {   /* MPAL */  0x04651e39, 0x0000020d, 0x00040c11,
-            0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204 },
+    static const uint32_t vi_regs_p[3][14] =  {
+        {   /* PAL */   
+            0x3202, (uint32_t)FB_BUFFER_0,
+            FB_WIDTH, 0, 0,
+            0x0404233a, 0x00000271, 0x00150c69,
+            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b, 
+            FB_SCALE_X, FB_SCALE_Y },
+        {   /* NTSC */  
+            0x3202, (uint32_t)FB_BUFFER_0,
+            FB_WIDTH, 0, 0,
+            0x03e52239, 0x0000020d, 0x00000c15,
+            0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204,
+            FB_SCALE_X, FB_SCALE_Y },
+        {   /* MPAL */  
+            0x3202, (uint32_t)FB_BUFFER_0,
+            FB_WIDTH, 0, 0,
+            0x04651e39, 0x0000020d, 0x00040c11,
+            0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204,
+            FB_SCALE_X, FB_SCALE_Y },
     };
     
-    volatile uint32_t* regs = (uint32_t*)0xA4400000;
-    regs[2] = 320;
-    regs[12] = 0x200;
-    regs[13] = 0x400;
+    volatile uint32_t* VI_REGS = (uint32_t*)0xA4400000;
 
     int tv_type = get_tv_type();
     vi_regs_default = vi_regs_p[tv_type];
     #pragma GCC unroll 0
-    for (int reg=0; reg<7; reg++)
-        regs[reg+5] = vi_regs_p[tv_type][reg];
-    regs[0] = sys_bbplayer() ? 0x1202 : 0x3202;    
+    for (int reg=0; reg<14; reg++)
+        VI_REGS[reg] = vi_regs_default[reg];
 }
 
 static void vi_init(void)
@@ -184,7 +197,7 @@ void demo(void)
     music_init();
 
     //skip to a certain scene:
-    //framecount=450;
+    framecount=700;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
