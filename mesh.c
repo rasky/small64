@@ -129,8 +129,8 @@ static void setup_3d(void)
 {
     uint64_t *udl = (uint64_t*)((uint32_t)dl_setup_3d | 0xA0000000);
     udl[4] = (udl[4] & 0xFFFFFFFFFFFFFF00ull) | (torus_fade & 0xFF);
-    udl[5] |= (uint32_t)checkerboard + 32;
-    udl[10] |= (uint32_t)bbsong_data + 16;
+    udl[5] |= (uint32_t)music_render + 32;
+    udl[10] |= (uint32_t)music_init + 64;
 
     dp_send(dl_setup_3d, dl_setup_3d+dl_setup_3d_cnt);
 }

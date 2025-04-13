@@ -65,7 +65,6 @@ static void vi_reset(void)
     };
     
     volatile uint32_t* regs = (uint32_t*)0xA4400000;
-    regs[1] = (uint32_t)FB_BUFFER_0;
     regs[2] = 320;
     regs[12] = 0x200;
     regs[13] = 0x400;
@@ -80,6 +79,7 @@ static void vi_reset(void)
 
 static void vi_init(void)
 {
+    *VI_ORIGIN = (uint32_t)FB_BUFFER_0;
     vi_reset();
     vi_buffer_draw = FB_BUFFER_0;
     vi_buffer_show = FB_BUFFER_1;
@@ -171,7 +171,7 @@ void bb_render(int16_t *buffer)
 //#include "noise.c"
 #include "ucode.c"
 #include "scroller.c"
-#include "bkg.c"
+//#include "bkg.c"
 #include "mesh.c"
 #include "fractal.c"
 
