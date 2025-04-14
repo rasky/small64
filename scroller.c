@@ -98,14 +98,14 @@ static int draw_intro_setup(void)
     *VI_ORIGIN += 0x40;
 
     unsigned int rand = C0_COUNT();
-    if ((visible && (rand&0xff) < 32)) {
+    if ((visible && (rand&0xff) < 32) || fc == 1) {
         visible = false;
         *VI_H_VIDEO = 0x0;
     } else if (!visible && (rand&0xff) < 8) {
         visible = true;
         *VI_X_SCALE = 0x140 + ((rand>>8) & 0x7F);
         *VI_Y_SCALE = 0x80 + ((rand>>16) & 0x7F);
-        *VI_H_VIDEO = vi_regs_default[4];
+        *VI_H_VIDEO = vi_regs_default[9];
     }
 
     return intro_phidx;

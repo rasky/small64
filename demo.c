@@ -85,6 +85,7 @@ static void vi_reset(void)
 
     int tv_type = get_tv_type();
     vi_regs_default = vi_regs_p[tv_type];
+    //vi_regs_default[1] = *VI_ORIGIN;
     #pragma GCC unroll 0
     for (int reg=0; reg<14; reg++)
         VI_REGS[reg] = vi_regs_default[reg];
@@ -92,8 +93,8 @@ static void vi_reset(void)
 
 static void vi_init(void)
 {
-    *VI_ORIGIN = (uint32_t)FB_BUFFER_0;
     vi_reset();
+    *VI_ORIGIN = (uint32_t)FB_BUFFER_0;
     vi_buffer_draw = FB_BUFFER_0;
     vi_buffer_show = FB_BUFFER_1;
 }
@@ -197,7 +198,7 @@ void demo(void)
     music_init();
 
     //skip to a certain scene:
-    framecount=700;
+    //framecount=700;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
