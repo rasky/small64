@@ -58,7 +58,7 @@ const uint32_t *vi_regs_default;
 #define FB_SCALE_X    (FB_WIDTH * 1024 / 640)
 #define FB_SCALE_Y    (FB_HEIGHT * 1024 / 240)
 
-static void vi_reset(void)
+static void vi_reset(int regstart)
 {
     static const uint32_t vi_regs_p[3][14] =  {
         {   /* PAL */   
@@ -87,7 +87,7 @@ static void vi_reset(void)
     vi_regs_default = vi_regs_p[tv_type];
     //vi_regs_default[1] = *VI_ORIGIN;
     #pragma GCC unroll 0
-    for (int reg=0; reg<14; reg++)
+    for (int reg=regstart; reg<14; reg++)
         VI_REGS[reg] = vi_regs_default[reg];
 }
 

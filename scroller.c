@@ -92,7 +92,7 @@ static int draw_intro_setup(void)
     int fc = framecount;
     int intro_phidx = fc >> 7;
     if (intro_phidx > 2) {
-        vi_reset();
+        vi_reset(2);
         return intro_phidx;
     }
     *VI_ORIGIN += 0x40;
