@@ -18,12 +18,22 @@ static inline void ucode_init()
 }
 
 
-static inline void ucode_set_displace(int factor) 
+static inline void ucode_set_displace(int factor)
 {
   SP_DMEM[16/4] = factor;
 }
 
-static inline void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t posY) 
+__attribute__((noinline))
+static uint32_t to_short(float f) {
+  return (int32_t)(f * 0x7FFF) & 0xFFFF;
+}
+
+__attribute__((noinline))
+static uint32_t to_short_upper(float f) {
+  return (int32_t)(f * 0x7FFF) << 16;
+}
+
+static void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t posY)
 {
   float cosR0 = mm_cosf(rot[0]);
   float cosR2 = mm_cosf(rot[2]);
@@ -35,26 +45,16 @@ static inline void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint3
 
   // @TODO: split this up into an extra scale vector
   // @TODO: after the above use this for lighting in the ucode
-  float mat[3*3] = {
-    cosR2 * cosR1, 
-    (cosR2 * sinR1 * sinR0 - sinR2 * cosR0), 
-    (cosR2 * sinR1 * cosR0 + sinR2 * sinR0),
-    sinR2 * cosR1, 
-    (sinR2 * sinR1 * sinR0 + cosR2 * cosR0), 
-    (sinR2 * sinR1 * cosR0 - cosR2 * sinR0),
-    -sinR1, 
-    cosR1 * sinR0, 
-    cosR1 * cosR0
-  };
 
-  // @TODO: set scale 
+  // // @TODO: set scale
   uint32_t* DMEM_BASE = (uint32_t*)&SP_DMEM[24/4];
-  DMEM_BASE[0] = ((int32_t)(mat[0] * 0x7FFF) << 16) | ((int32_t)(mat[1] * 0x7FFF) & 0xFFFF);
-  DMEM_BASE[1] = ((int32_t)(mat[2] * 0x7FFF) << 16) | posX;
-  DMEM_BASE[2] = ((int32_t)(mat[3] * 0x7FFF) << 16) | ((int32_t)(mat[4] * 0x7FFF) & 0xFFFF);
-  DMEM_BASE[3] = ((int32_t)(mat[5] * 0x7FFF) << 16) | posY;
-  DMEM_BASE[4] = ((int32_t)(mat[6] * 0x7FFF) << 16) | ((int32_t)(mat[7] * 0x7FFF) & 0xFFFF);
-  DMEM_BASE[5] = ((int32_t)(mat[8] * 0x7FFF) << 16);
+
+  DMEM_BASE[0] = to_short_upper(cosR2 * cosR1) | to_short_upper(cosR2 * sinR1 * sinR0 - sinR2 * cosR0) >> 16;
+  DMEM_BASE[1] = to_short_upper(cosR2 * sinR1 * cosR0 + sinR2 * sinR0) | posX;
+  DMEM_BASE[2] = to_short_upper(sinR2 * cosR1) | to_short_upper(sinR2 * sinR1 * sinR0 + cosR2 * cosR0) >> 16;
+  DMEM_BASE[3] = to_short_upper(sinR2 * sinR1 * cosR0 - cosR2 * sinR0) | posY;
+  DMEM_BASE[4] = to_short_upper(-sinR1) | to_short_upper(cosR1 * sinR0) >> 16;
+  DMEM_BASE[5] = to_short_upper(cosR1 * cosR0);
 }
 
 /**
