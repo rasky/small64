@@ -17,14 +17,6 @@ static inline void ucode_init()
  }
 }
 
-/**
- * Set start and end address of vertices to process
- * @param addr 
- */
-static inline void ucode_set_vertices_address(uint32_t addr, uint32_t addrEnd) {
-  ((volatile uint32_t*)SP_DMEM)[2] = addr;
-  ((volatile uint32_t*)SP_DMEM)[3] = addrEnd;
-}
 
 static inline void ucode_set_displace(int factor) 
 {

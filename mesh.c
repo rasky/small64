@@ -138,7 +138,8 @@ static void mesh_draw(void)
 
     xangle += 0.01f;
     yangle += 0.015f;
-    uint32_t vert_buff_end = mesh();
+    
+    mesh();
     ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
 
     *DP_STATUS = DP_WSTATUS_SET_XBUS;
@@ -153,7 +154,6 @@ static void mesh_draw(void)
         dispTimer += 0.01f;
     }
 
-    ucode_set_vertices_address((uint32_t)VERTEX_BUFFER, vert_buff_end);
     ucode_run();
     dp_wait();
 

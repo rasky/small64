@@ -86,9 +86,9 @@
     STATE_MEM_START:
     SHIFT_DATA: .byte 128, 64, 32, 16, 8, 4, 2, 1
     .align 2
-    VERTEX_ADDR: .ds.b 4
+    VERTEX_ADDR: .word 2162688
     .align 2
-    VERTEX_ADDR_END: .ds.b 4
+    VERTEX_ADDR_END: .word 2187264
     .align 1
     DISPLACE_FACTOR: .ds.b 4
     .align 3
