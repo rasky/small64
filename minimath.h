@@ -83,11 +83,11 @@ __attribute__((const))
 static float mm_sinf(float x) {
     while (x < -MM_PI) x += 2 * MM_PI;
     while (x >  MM_PI) x -= 2 * MM_PI;
-    
+
     const float B = 4.0f / MM_PI;
     const float C = -4.0f / (MM_PI * MM_PI);
     float y = B * x + C * x * __builtin_fabsf(x);
-    
+
     const float P = 0.225f;
     return P * (y * __builtin_fabsf(y) - y) + y;
 }
@@ -101,7 +101,7 @@ static float mm_cosf(float x) {
 #define mm_sinf(x)   (__builtin_constant_p(x) ? __builtin_sinf(x) : mm_sinf(x))
 
 __attribute__((const))
-static int mm_sin_s8(int s) {
+int mm_sin_s8(int s) {
   // Note: using a lookup table created during runtime is more code
   // even though we would avoid an index to float mapping here
   return mm_sinf(s * (MM_PI / 128.0f)) * 0x7F;

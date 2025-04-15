@@ -137,8 +137,8 @@ static void mesh_draw_async(void)
 
     xangle += 0.01f;
     yangle += 0.015f;
-    
-    mesh();
+
+    // mesh();
     ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
 
     *DP_STATUS = DP_WSTATUS_SET_XBUS;

@@ -34,7 +34,7 @@ SECTIONS {
     .text.stage1 : {
         __stage1 = .;
         KEEP(*(.stage1))
-        build/stage1.o       
+        build/stage1.o
         /*build/minirdram.o*/
         . = ALIGN(8);
     } > imem
@@ -48,6 +48,7 @@ SECTIONS {
         KEEP(build/demo.o(.text.demo))
         build/demo.o(.text .text.*)
         build/minilib.o
+        build/torus.o
         build/demo.o(.rodata .rodata.*)
         build/demo.o(.data .data.*)
         build/demo.o(.sdata .sdata.*)

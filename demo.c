@@ -196,6 +196,8 @@ void bb_render(int16_t *buffer)
 #include "mesh.c"
 #include "fractal.c"
 
+extern void gentorus(void* buffer);
+
 __attribute__((used))
 void demo(void)
 {
@@ -203,6 +205,7 @@ void demo(void)
     vi_init();
     ucode_init();
     music_init();
+    gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
     //framecount=700;
