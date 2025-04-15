@@ -31,11 +31,11 @@ int32_t rng = 1;
 typedef struct
 {
     uint32_t oscPhase;
-    int64_t envLevel;
-    int64_t envSustain;
+    int32_t envLevel;
+    int32_t envSustain;
     int64_t freq;
     int64_t low, band;
-    int64_t paramIndex;
+    int32_t paramIndex;
 } SynthState;
 
 // UNINITIALIZED DATA (should be filled with zeros)
@@ -43,7 +43,7 @@ typedef struct
 int64_t SinTable[8192];
 int64_t PowTable[8192];
 SynthState synthStates[MUSIC_CHANNELS];
-int64_t currentRow;
+int32_t currentRow;
 
 void music_init()
 {
@@ -64,58 +64,48 @@ void music_init()
 
 void music_render(int16_t *buffer)
 {
-    int32_t localRng = rng;
-    int64_t pos = currentRow;
+    int32_t pos = currentRow;
     int16_t *end = buffer + AI_BUFFER_SIZE/2;
 
     for (int track = 0; track < MUSIC_CHANNELS; track++)
     {
         SynthState *s = &synthStates[track];
         int64_t oscPhase = s->oscPhase;
-        int64_t envLevel = s->envLevel;
-        int64_t envSustain = s->envSustain;
+        int32_t envLevel = s->envLevel;
+        int32_t envSustain = s->envSustain;
         int64_t freq = s->freq;
         int64_t low = s->low;
         int64_t band = s->band;
-        int64_t paramIndex = s->paramIndex;
-        int64_t note = noteData[pos];
+        uint32_t note = noteData[pos];
         // load params from state
         if (note)
         {
-            paramIndex = note >> 7;
+            s->paramIndex = note >> 7;
             note &= 0x7F;
             envSustain = 1 << 21;
             envLevel = 1 << 21;
             oscPhase = 0;
             freq = PowTable[note];
         }
-        SynthParams *params = &synthParams[track * 2 + paramIndex];
-        const int64_t dropFreq = 0x700000 / 8; // rounded into nice hex number: 7381975;
-        int64_t freqMult = params->freqMult;
-        int64_t sustain = PowTable[params->sustain + 168];
-        int64_t release = PowTable[params->release + 168];
-        int64_t pitchDrop = params->pitchDrop;
-        int64_t waveform = params->waveform;
-        int64_t volume = params->volume;
-        int64_t filtType = params->filtType;
-        int64_t filtFreq = params->filtFreq;
+        SynthParams *params = &synthParams[track * 2 + s->paramIndex];
+        const int32_t dropFreq = 0x700000 / 8; // rounded into nice hex number: 7381975;
 
         int16_t *ptr = buffer;
         while (ptr < end)
         {
-            envSustain -= sustain;
+            envSustain -= PowTable[params->sustain + 168];
             if (envSustain < 0)
             {
-                envLevel -= release;
+                envLevel -= PowTable[params->release + 168];
                 if (envLevel < 0)
                 {
                     envLevel = 0;
                 }
             }
             int64_t res;
-            freq -= (freq - dropFreq) * pitchDrop >> 16;
-            oscPhase += freq * freqMult;
-            switch (waveform)
+            freq -= (freq - dropFreq) * params->pitchDrop >> 16;
+            oscPhase += freq * params->freqMult;
+            switch (params->waveform)
             {
             case 0:
                 res = SinTable[(uint32_t)oscPhase >> 19];
@@ -125,21 +115,24 @@ void music_render(int16_t *buffer)
                 break;
             default:
             case 2:
-                localRng *= 18007;
-                res = localRng;
+                rng *= 18007;
+                res = rng;
             }
 
-            int64_t x = (res * volume * envLevel) >> 45;
+            int64_t x = (res * params->volume * envLevel) >> 45;
+
+            int32_t filtFreq = params->filtFreq;
 
             low += (filtFreq * band) >> 6;
             int64_t high = x - band - low;
             band += (filtFreq * high) >> 8;
+
             int64_t out = 0;
             // Skip loading previous value during the first track, to clear the buffer
             if (track != 0)
                 out = ptr[0];
 
-            switch (filtType)
+            switch (params->filtType)
             {
             case 0: // high
                 out += high;
@@ -159,9 +152,7 @@ void music_render(int16_t *buffer)
         s->freq = freq;
         s->low = low;
         s->band = band;
-        s->paramIndex = paramIndex;
         pos += MUSIC_LENGTH;
     }
-    rng = localRng;
     currentRow++;
 }
