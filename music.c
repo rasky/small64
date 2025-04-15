@@ -34,7 +34,7 @@ typedef struct
     int32_t envLevel;
     int32_t envSustain;
     int64_t freq;
-    int64_t low, band;
+    int32_t low, band;
     int32_t paramIndex;
 } SynthState;
 
@@ -74,8 +74,8 @@ void music_render(int16_t *buffer)
         int32_t envLevel = s->envLevel;
         int32_t envSustain = s->envSustain;
         int64_t freq = s->freq;
-        int64_t low = s->low;
-        int64_t band = s->band;
+        int32_t low = s->low;
+        int32_t band = s->band;
         uint32_t note = noteData[pos];
         // load params from state
         if (note)
@@ -119,15 +119,18 @@ void music_render(int16_t *buffer)
                 res = rng;
             }
 
-            int64_t x = (res * params->volume * envLevel) >> 45;
+            // NOTE: x/low/high/band were originally all 64-bit, but were
+            // brutally truncated to 32-bit during optimisation to save 72 bytes.
+
+            int32_t x = (res * params->volume * envLevel) >> 45;
 
             int32_t filtFreq = params->filtFreq;
 
             low += (filtFreq * band) >> 6;
-            int64_t high = x - band - low;
+            int32_t high = x - band - low;
             band += (filtFreq * high) >> 8;
 
-            int64_t out = 0;
+            int32_t out = 0;
             // Skip loading previous value during the first track, to clear the buffer
             if (track != 0)
                 out = ptr[0];
