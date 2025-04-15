@@ -39,41 +39,46 @@ static void fracgen_noisy(uint8_t *tex, int idx, int w, int h)
         // uint8_t g = MIN(c+(c>>2), 0x1F);
         // uint8_t b = MIN(c*2, 0x1F);
         // *tex++ = RGBA16(r,g,b, 0);
-        
+
         idx++;
         //if ((i % w) == 0) { idx += 320-w; }
     }
 }
 
-static void fracgen(uint8_t *tex, int idx, int w, int h)
+static void fracgen(uint8_t *tex, int idx, int len)
 {
     // tex = (void*)(((uint32_t)tex & 0x1FFFFFFF) | 0x80000000);
     int fc = texgen_framecount;
     int itermax = 8; //MIN((framecount >> 6), 16);
 
-    uint8_t c = 0;
-    for (int i=0; i<w*h; i++) {
+    uint32_t c = 0;
+    uint8_t* tex_end = tex + len;
+    while (tex < tex_end) {
         int val = idx * ((0xCD00<<2) | 0);
+
+        // This orignally used bytes, but it's cheaper to just use the
+        // upper bits of a 32-bit value.
+        // And we don't bother clearing the lower bits.
+        uint32_t px = val << 8;
+        uint32_t py = val;
+
         c = 0;
 
-        uint8_t px = (val >> 16) & 0xff;
-        uint8_t py = (val >> 24) & 0xff;
-
-        for (int j=0;j<itermax;j++) {
-            px -= fc;
+        for (int j=-itermax;j<0;j++) {
+            px -= fc << 24;
             py += px;
             c += px < (py >> 1);
-            px -= (py >> 1);
+            px -= py >> 1;
         }
 
         //c += random_u32() & 1;
 
-        *tex++ = c<<4;
+        *tex++ = c << 4;
         // uint8_t r = MIN(c+(c>>1), 0x1F);
         // uint8_t g = MIN(c+(c>>2), 0x1F);
         // uint8_t b = MIN(c*2, 0x1F);
         // *tex++ = RGBA16(r,g,b, 0);
-        
+
         idx++;
         //if ((i % w) == 0) { idx += 320-w; }
     }
@@ -107,7 +112,7 @@ static uint64_t dl_draw_bitmap[] = {
 static void fracgen_draw(void)
 {
     int tbuf_offset = (framecount & 1) * BITMAP_WIDTH*BITMAP_HEIGHT/2;
-    fracgen(tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH, BITMAP_HEIGHT/2);
+    fracgen(tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH * BITMAP_HEIGHT/2);
 
     if ((framecount & 1)) {
         texgen_framecount++;
