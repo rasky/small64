@@ -158,8 +158,9 @@ Main:
   vmudh $v11, $v11, $v30.e6
   vmov $v11.e3, $v10.e6
   vadd $v08, $v08, $v07.v
-  vmudm $v12, $v08, $v31.e5
-  vaddc $v08, $v12, $v01.v
+  vmudm $v12, $v08, $v31.e4
+  vmulf $v08, $v12, $v05.e3
+  vaddc $v08, $v08, $v01.v
   sdv $v08, 0, 0, $a1 ## Barrier: 0x2
   suv $v11, 0, 8, $a1 ## Barrier: 0x2
   slv $v12, 8, 12, $a1 ## Barrier: 0x2
