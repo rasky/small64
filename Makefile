@@ -6,6 +6,7 @@ SOURCE_DIR=.
 # 0 = Shrinkler, 1 = UPKR
 COMPRESSION_ALGO=1
 COMPRESSION_LEVEL=9
+VIDEO_TYPE ?= 1        # 0 = PAL, 1 = NTSC, 2 = MPAL
 
 ifeq ($(shell uname -s),Darwin)
 	SED=gsed
@@ -55,7 +56,7 @@ OBJS += build/demo.o build/minilib.o #build/torus.o
 FINAL_SRCS = stage0.S stage0_bins.S
 
 N64_ASPPFLAGS += -DNDEBUG -DPROD
-N64_CFLAGS += -DNDEBUG -DPROD
+N64_CFLAGS += -DNDEBUG -DPROD -DVIDEO_TYPE=$(VIDEO_TYPE)
 
 build/demo.o: N64_CFLAGS += -G1024
 
