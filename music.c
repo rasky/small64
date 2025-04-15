@@ -62,11 +62,12 @@ void music_init()
     }
 }
 
-void music_render(int16_t *buffer, int32_t samples)
+void music_render(int16_t *buffer)
 {
     int32_t localRng = rng;
     int64_t pos = currentRow;
-    memset32(buffer, 0, sizeof(int16_t) * samples * 2);
+    int16_t *end = buffer + AI_BUFFER_SIZE/2;
+
     for (int track = 0; track < MUSIC_CHANNELS; track++)
     {
         SynthState *s = &synthStates[track];
@@ -98,7 +99,9 @@ void music_render(int16_t *buffer, int32_t samples)
         int64_t volume = params->volume;
         int64_t filtType = params->filtType;
         int64_t filtFreq = params->filtFreq;
-        for (int i = 0; i < samples; i++)
+
+        int16_t *ptr = buffer;
+        while (ptr < end)
         {
             envSustain -= sustain;
             if (envSustain < 0)
@@ -131,19 +134,24 @@ void music_render(int16_t *buffer, int32_t samples)
             low += (filtFreq * band) >> 6;
             int64_t high = x - band - low;
             band += (filtFreq * high) >> 8;
-            int64_t out;
+            int64_t out = 0;
+            // Skip loading previous value during the first track, to clear the buffer
+            if (track != 0)
+                out = ptr[0];
+
             switch (filtType)
             {
             case 0: // high
-                out = high;
+                out += high;
                 break;
             default:
             case 1: // band
-                out = band;
+                out += band;
                 break;
             }
-            buffer[i * 2 + 1] += out;
-            buffer[i * 2] += out;
+            ptr[0] = out;
+            ptr[1] = out;
+            ptr += 2;
         }
         s->oscPhase = oscPhase;
         s->envLevel = envLevel;
