@@ -309,7 +309,7 @@ def main():
         f.write(f"#define CHAR_SPACING_OFFSET {min_width}\n")
 
         # 3 bits for width
-        assert min_width < 0b111
+        assert min_width <= 0b111
 
         # Create a single array with binary data for all the phrases, concatenating them.
         f.write("const unsigned char phrases[] = {\n")
@@ -319,7 +319,7 @@ def main():
             for i, byte in enumerate(phrase_data):
                 
                 # 5 bits for char code
-                assert byte < 0b11111
+                assert byte <= 0b11111
 
                 packed_char = ((widths[byte] - min_width) << 5) | byte
                 
