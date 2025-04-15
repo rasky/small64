@@ -32,7 +32,7 @@ N64_CFLAGS =  -march=vr4300 -mtune=vr4300 -MMD
 N64_CFLAGS += -DN64 -Os -Wall -Wno-error=deprecated-declarations -fdiagnostics-color=always
 N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections -fno-tree-loop-optimize 
 N64_CFLAGS += -G0 # gp is not initialized (don't use it)
-N64_CFLAGS += -mabi=32 -mgp32 -mfp32 -msingle-float # Can't compile for 64bit ABI because DMEM/IMEM don't support 64-bit access
+#N64_CFLAGS += -mabi=32 -mgp32 -mfp32 -msingle-float # Can't compile for 64bit ABI because DMEM/IMEM don't support 64-bit access
 N64_CFLAGS += -ffast-math -ftrapping-math -fno-associative-math
 #N64_CFLAGS += -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=unused-but-set-variable -Wno-error=unused-value -Wno-error=unused-label -Wno-error=unused-parameter -Wno-error=unused-result
 N64_CFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-variable -Wno-unused-value -Wno-unused-label -Wno-unused-parameter -Wno-unused-result
@@ -48,8 +48,8 @@ SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
-OBJS = build/stage1.o build/minidragon.o build/minirdram.o
-OBJS += build/demo.o build/minilib.o
+OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
+OBJS += build/demo.o build/minilib.o #build/torus.o
 
 # Sources used to build the final compressed binary
 FINAL_SRCS = stage0.S stage0_bins.S
