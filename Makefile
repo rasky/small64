@@ -32,7 +32,7 @@ N64_MKASSET = $(N64_ROOTDIR)/bin/mkasset
 
 N64_CFLAGS =  -march=vr4300 -mtune=vr4300 -MMD
 N64_CFLAGS += -DN64 -Os -Wall -Wno-error=deprecated-declarations -fdiagnostics-color=always
-N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections -fno-tree-loop-optimize 
+N64_CFLAGS += -ffreestanding -nostdlib -ffunction-sections -fdata-sections -fno-tree-loop-optimize
 N64_CFLAGS += -G0 # gp is not initialized (don't use it)
 #N64_CFLAGS += -mabi=32 -mgp32 -mfp32 -msingle-float # Can't compile for 64bit ABI because DMEM/IMEM don't support 64-bit access
 N64_CFLAGS += -ffast-math -ftrapping-math -fno-associative-math
@@ -42,7 +42,7 @@ N64_CFLAGS += -Wno-unused-function -Wno-unused-variable -Wno-unused-but-set-vari
 #N64_CFLAGS += -flto
 
 N64_ASFLAGS = -mtune=vr4300 -march=vr4300 -Wa,--fatal-warnings
-N64_ASFLAGS =  -mabi=32 -mgp32 -mfp32 -msingle-float -G0
+#N64_ASFLAGS =  -mabi=32 -mgp32 -mfp32 -msingle-float -G0
 N64_RSPASFLAGS = -march=mips1 -mabi=32 -Wa,--fatal-warnings
 N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 
@@ -51,7 +51,7 @@ UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
 STAGE1_OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
-STAGE2_OBJS = build/demo.o #build/minilib.o #build/torus.o
+STAGE2_OBJS = build/demo.o build/torus.o # build/minilib.o
 
 # Sources used to build the final compressed binary
 FINAL_SRCS = stage0.S stage0_bins.S
@@ -145,7 +145,7 @@ run: small.z64
 	sc64deployer upload --direct small.z64 && sc64deployer debug --isv 0x3FF0000
 
 disasm: build/small.elf
-	$(N64_OBJDUMP) -D build/small.elf	
+	$(N64_OBJDUMP) -D build/small.elf
 
 clean:
 	rm -rf build small.z64 run
