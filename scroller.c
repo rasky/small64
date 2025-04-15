@@ -18,7 +18,7 @@ static RdpList dl_text[] = {
     RdpSetOtherModes(SOM_CYCLE_2 | SOM_ALPHA_COMPARE),
     RdpSetCombine(RDPQ_COMBINER2(
         (TEX1,0,0,TEX0),  (PRIM,0,TEX0,TEX1),
-        (COMBINED,0,ENV,0), (0,0,0,COMBINED)
+        (COMBINED,0,PRIM,0), (0,0,0,COMBINED)
     )),
     RdpSetBlendColor(RGBA32(0, 0, 0, 8)),
     RdpSetTile(RDP_TILE_FORMAT_IA, RDP_TILE_SIZE_4BIT, CHAR_WIDTH, 0, TILE0),
@@ -26,8 +26,7 @@ static RdpList dl_text[] = {
     RdpSetTile(RDP_TILE_FORMAT_IA, RDP_TILE_SIZE_8BIT, CHAR_WIDTH, 0, TILE2),
     RdpSetTileSizeI(TILE0, 0, 0, CHAR_WIDTH, CHAR_HEIGHT),
     RdpSetTileSizeI(TILE1, 2, 2, CHAR_WIDTH+2, CHAR_HEIGHT+2),
-    RdpSetPrimColor(RGBA32(0x0, 0x0, 0x0, 0x10)),
-    [69] = RdpSetEnvColor(RGBA32(0xFF, 0xFF, 0xFF, 0xFF)),
+    [69] = RdpSetPrimColor(RGBA32(0, 0, 0, 0)),
 
     [70] = DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(),
     DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(), DRAW_CHAR(),
@@ -38,10 +37,10 @@ static RdpList dl_text[] = {
 };
 
 uint32_t colors[4] = {
-    0xFFFFFFFF,     // white
-    0xF4D35EFF,     // yellow
-    0x8A4FFFFF,     // purple
-    0xFFAA99FF,     // melon
+    0xFFFFFF10,     // white
+    0xF4D35E10,     // yellow
+    0x8A4FFF10,     // purple
+    0xFFAA9910,     // melon
 };
 
 static void draw_text(uint32_t color, const uint8_t *text, int text_len, int xpos0, int ypos0)
