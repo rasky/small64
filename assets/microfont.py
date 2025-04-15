@@ -298,18 +298,18 @@ def main():
         #   - The following bytes: the widths of all characters in the atlas, one per byte.
         widths = []
         widths.append(new_dims[0])  # Use new_width as the spacing dimension
+        min_width = 0xFF
         for sprite in cropped_sprites:
             w = compute_sprite_width(sprite)
+            if w < min_width: min_width = w
             widths.append(w+1)
 
-        f.write(f"const unsigned char char_widths[] = {{\n")
-        for i, width in enumerate(widths):
-            if i % 16 == 0:
-                f.write("    ")
-            f.write(f"0x{width:02X}, ")
-            if (i + 1) % 16 == 0:
-                f.write("\n")
-        f.write("};\n")
+        min_width = min_width + 1
+        
+        f.write(f"#define CHAR_SPACING_OFFSET {min_width}\n")
+
+        # 3 bits for width
+        assert min_width < 0b111
 
         # Create a single array with binary data for all the phrases, concatenating them.
         f.write("const unsigned char phrases[] = {\n")
@@ -317,9 +317,15 @@ def main():
             phrase_data = create_phrase_binary(phrase, required_chars)
             f.write(f"    // {phrase}\n")
             for i, byte in enumerate(phrase_data):
+                
+                # 5 bits for char code
+                assert byte < 0b11111
+
+                packed_char = ((widths[byte] - min_width) << 5) | byte
+                
                 if i % 16 == 0:
                     f.write("    ")
-                f.write(f"0x{byte:02X}, ")
+                f.write(f"0x{packed_char:02X}, ")
                 if (i + 1) % 16 == 0:
                     f.write("\n")
             f.write("\n")

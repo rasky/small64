@@ -101,16 +101,15 @@ uint32_t mesh(void)
 
 static RdpList dl_setup_3d[] = {
     [0] = RdpSetEnvColor(RGBA32(0x00, 0x00, 0x00, 0x1)),
-    [1] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 0x0a40, 8),
+    [1] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 0x0a00, 8),
            RdpSetTile(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 8, 0, TILE0) |
                 RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, 3),
            RdpLoadTileI(TILE0, 0, 0, 8, 8),
-    [5]  = RdpSetTexImage(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 0x950, 8),
-           RdpSetTile(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 8, 0x400, TILE1) |
+
+           RdpSetTile(RDP_TILE_FORMAT_I, RDP_TILE_SIZE_8BIT, 8, 0x10, TILE1) |
                 RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, -1),
-           RdpLoadTileI(TILE1, 0, 0, 8, 8),
            RdpSetOtherModes(SOM_CYCLE_2 | SOM_Z_COMPARE | SOM_Z_WRITE | SOM_ZSOURCE_PIXEL | SOM_SAMPLE_BILINEAR | SOM_ALPHACOMPARE_NOISE),
-           RdpSetPrimColor(RGBA32(0xFF, 0xAA, 0x99, 0xFF)),
+           RdpSetPrimColor(RGBA32(0xB0, 0xA0, 0x90, 0xFF)),
            RdpSetCombine(RDPQ_COMBINER2(
             // inverted fresnel, scale down to 0 by amount of fresnel
             (TEX1,TEX0,SHADE_ALPHA, TEX0), (0,0,0,ENV),

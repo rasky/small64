@@ -53,9 +53,9 @@ static void draw_text(uint32_t color, const uint8_t *text, int text_len, int xpo
 
     for (int i=0; i<text_len; i++) {
         if (xpos > 320) break;
-        if (xpos >= 0 && text[i] != 0) {
-            int index = text[i]-1;
-            w[50*2+1] = (uint32_t)(font + index * CHAR_SIZE);
+        if (xpos >= 0 && text[i] != 0x60) {
+            int index = (text[i] & 0b11111);
+            w[50*2+1] = (uint32_t)(font - CHAR_SIZE + index * CHAR_SIZE);
 
             uint32_t xypos = (xpos << 14) | (ypos << 2);
             const int chsize = ((CHAR_WIDTH << 14) | ((CHAR_HEIGHT*2) << 2));
@@ -63,7 +63,7 @@ static void draw_text(uint32_t color, const uint8_t *text, int text_len, int xpo
             w[77*2+1] = xypos;
             w += 79*2;
         }
-        xpos += char_widths[text[i]]+1; 
+        xpos += (text[i] >> 5) + CHAR_SPACING_OFFSET;
     }
 
     *w = RdpSyncFull() >> 32;
