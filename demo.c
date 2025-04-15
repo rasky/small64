@@ -61,26 +61,26 @@ const uint32_t *vi_regs_default;
 static void vi_reset(int regstart)
 {
     static const uint32_t vi_regs_p[3][14] =  {
-        {   /* PAL */   
+        {   /* PAL */
             0x3202, (uint32_t)FB_BUFFER_0,
             FB_WIDTH, 0, 0,
             0x0404233a, 0x00000271, 0x00150c69,
-            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b, 
+            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b,
             FB_SCALE_X, FB_SCALE_Y },
-        {   /* NTSC */  
+        {   /* NTSC */
             0x3202, (uint32_t)FB_BUFFER_0,
             FB_WIDTH, 0, 0,
             0x03e52239, 0x0000020d, 0x00000c15,
             0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204,
             FB_SCALE_X, FB_SCALE_Y },
-        {   /* MPAL */  
+        {   /* MPAL */
             0x3202, (uint32_t)FB_BUFFER_0,
             FB_WIDTH, 0, 0,
             0x04651e39, 0x0000020d, 0x00040c11,
             0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204,
             FB_SCALE_X, FB_SCALE_Y },
     };
-    
+
     volatile uint32_t* VI_REGS = (uint32_t*)0xA4400000;
 
     int tv_type = get_tv_type();
@@ -174,11 +174,10 @@ void dp_begin_frame(void)
 
 void bb_render(int16_t *buffer)
 {
-    static int t = 0;
 
-    uint32_t t0 = C0_COUNT();    
-    music_render(buffer, AI_BUFFER_SIZE/4);            
-    uint32_t t1 = C0_COUNT() - t0;
+    //uint32_t t0 = C0_COUNT();
+    music_render(buffer, AI_BUFFER_SIZE/4);
+    //uint32_t t1 = C0_COUNT() - t0;
     //debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
 
@@ -204,7 +203,7 @@ void demo(void)
         vi_wait_vblank();
         framecount++;
         intro_phidx = draw_intro_setup();
-        
+
         dp_begin_frame();
         draw_intro(intro_phidx);
 
@@ -216,7 +215,7 @@ void demo(void)
         if (framecount > 700) {
             mesh_draw();
         }
-    
+
         // draw_scroller(vi_buffer_draw);
         draw_credits();
 
