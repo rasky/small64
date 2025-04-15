@@ -8,8 +8,9 @@
 #include "rdpq_macros.h"
 #include <math.h>
 
-#ifndef VIDEO_NTSC
-#define VIDEO_NTSC      1
+// 0:PAL, 1:NTSC, 2:MPAL
+#ifndef VIDEO_TYPE
+#define VIDEO_TYPE      1
 #endif
 
 #ifdef DEBUG
@@ -40,6 +41,11 @@
 #include "music.c"
 #define AI_FREQUENCY                SONG_FREQUENCY
 
+#define FB_WIDTH      320
+#define FB_HEIGHT     240
+#define FB_SCALE_X    (FB_WIDTH * 1024 / 640)
+#define FB_SCALE_Y    (FB_HEIGHT * 1024 / 240)
+
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
 
@@ -55,44 +61,41 @@ void *vi_buffer_draw;
 void *vi_buffer_show;
 int vi_buffer_draw_idx;
 int framecount;
-uint32_t *vi_regs_default;
 
-#define FB_WIDTH      320
-#define FB_HEIGHT     240
-#define FB_SCALE_X    (FB_WIDTH * 1024 / 640)
-#define FB_SCALE_Y    (FB_HEIGHT * 1024 / 240)
+static const uint32_t vi_regs_p[14] = {
+#if VIDEO_TYPE == 0
+    /* PAL */   
+    0x3202, (uint32_t)FB_BUFFER_0,
+    FB_WIDTH, 0, 0,
+    0x0404233a, 0x00000271, 0x00150c69,
+    0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b,
+    FB_SCALE_X, FB_SCALE_Y,
+#elif VIDEO_TYPE == 1
+    /* NTSC */
+    0x3202, (uint32_t)FB_BUFFER_0,
+    FB_WIDTH, 0, 0,
+    0x03e52239, 0x0000020d, 0x00000c15,
+    0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204,
+    FB_SCALE_X, FB_SCALE_Y,
+#elif VIDEO_TYPE == 2
+    /* MPAL */
+    0x3202, (uint32_t)FB_BUFFER_0,
+    FB_WIDTH, 0, 0,
+    0x04651e39, 0x0000020d, 0x00040c11,
+    0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204,
+    FB_SCALE_X, FB_SCALE_Y,
+#else
+#error Unsupported VIDEO_TYPE
+#endif
+};
 
 static void vi_reset(int regstart)
 {
-    static uint32_t vi_regs_p[3][14] =  {
-        {   /* PAL */   
-            0x3202, (uint32_t)FB_BUFFER_0,
-            FB_WIDTH, 0, 0,
-            0x0404233a, 0x00000271, 0x00150c69,
-            0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b,
-            FB_SCALE_X, FB_SCALE_Y },
-        {   /* NTSC */
-            0x3202, (uint32_t)FB_BUFFER_0,
-            FB_WIDTH, 0, 0,
-            0x03e52239, 0x0000020d, 0x00000c15,
-            0x0c150c15, 0x006c02ec, 0x002501ff, 0x000e0204,
-            FB_SCALE_X, FB_SCALE_Y },
-        {   /* MPAL */
-            0x3202, (uint32_t)FB_BUFFER_0,
-            FB_WIDTH, 0, 0,
-            0x04651e39, 0x0000020d, 0x00040c11,
-            0x0c190c1a, 0x006c02ec, 0x002501ff, 0x000e0204,
-            FB_SCALE_X, FB_SCALE_Y },
-    };
-
     volatile uint32_t* VI_REGS = (uint32_t*)0xA4400000;
 
-    int tv_type = get_tv_type();
-    vi_regs_default = vi_regs_p[tv_type];
-    //vi_regs_default[1] = *VI_ORIGIN;
     #pragma GCC unroll 0
     for (int reg=regstart; reg<14; reg++)
-        VI_REGS[reg] = vi_regs_default[reg];
+        VI_REGS[reg] = vi_regs_p[reg];
 }
 
 static void vi_init(void)

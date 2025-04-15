@@ -105,7 +105,7 @@ static int draw_intro_setup(void)
         visible = true;
         *VI_X_SCALE = 0x140 + ((rand>>8) & 0x7F);
         *VI_Y_SCALE = 0x80 + ((rand>>16) & 0x7F);
-        *VI_H_VIDEO = vi_regs_default[9];
+        *VI_H_VIDEO = vi_regs_p[9];
     }
 
     return intro_phidx;

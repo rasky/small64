@@ -1,6 +1,8 @@
-#if VIDEO_NTSC
+#if VIDEO_TYPE == 1 || VIDEO_TYPE == 2
+// NTSC and MPAL are 60hz
 #define TTT(fc)         (fc)
 #else
+// PAL is 50 Hz
 #define TTT(fc)         ((fc) * 50 / 60)   
 #endif
 
