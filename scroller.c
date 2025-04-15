@@ -89,13 +89,13 @@ static int draw_intro_setup(void)
     static bool visible = false;
     volatile uint32_t* regs = (uint32_t*)0xA4400000;
 
-    int fc = framecount;
+    int fc = framecount - T_INTRO;
+    if (fc < 0) return -1;
     int intro_phidx = fc >> 7;
     if (intro_phidx > 2) {
         vi_reset(2);
         return intro_phidx;
     }
-    *VI_ORIGIN += 0x40;
 
     unsigned int rand = C0_COUNT();
     if ((visible && (rand&0xff) < 32) || fc == 1) {
@@ -114,18 +114,17 @@ static int draw_intro_setup(void)
 static void draw_intro(int phidx)
 {
     if (phidx > 2) return;
-    draw_text(colors[phidx], phrases+phrases_off[phidx], phrases_off[phidx+1] - phrases_off[phidx], 120, 8);
+    draw_text(colors[phidx], phrases+phrases_off[phidx], phrases_off[phidx+1] - phrases_off[phidx], 100, 8);
 }
 
 static void draw_credits(void)
 {
-    static int xpos0[3] = { 120, 80, 120 };
+    static int xpos0[4] = { 120, 80, 120, 120 };
     const int PH_START = 3;
 
-    int fc = framecount - 1000;
-    if (fc < 0) return;
+    int fc = framecount - T_CREDITS;
     int phidx = fc >> 8;
-    if (phidx > 2) return;
+    if (phidx > 3) return;
 
     fc &= 255;
     int xpos = xpos0[phidx];

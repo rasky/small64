@@ -124,7 +124,7 @@ static RdpList dl_setup_3d[] = {
 
 static void setup_3d(void)
 {
-    int torus_fade = MIN((framecount-700)<<2, 0xFF);
+    int torus_fade = MIN((framecount-1700)<<2, 0xFF);
     uint8_t *udl = (uint8_t*)((uint32_t)dl_setup_3d | 0xA0000000);
 
     udl[7] = torus_fade;
@@ -132,7 +132,7 @@ static void setup_3d(void)
     dp_send(dl_setup_3d, dl_setup_3d+dl_setup_3d_cnt);
 }
 
-static void mesh_draw(void)
+static void mesh_draw_async(void)
 {
     setup_3d();
 
@@ -146,7 +146,7 @@ static void mesh_draw(void)
     *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
     *DP_END = 0x30;
 
-    if (framecount > 1600) {
+    if (framecount > T_ANIMATE) {
         static float dispTimer = -3;
         float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
         ucode_set_displace(dispFactor * 0x7FFF);
@@ -155,8 +155,12 @@ static void mesh_draw(void)
     }
 
     ucode_run();
+
+}
+
+static void mesh_draw_wait(void)
+{
+    ucode_sync();
     dp_wait();
-
     *DP_STATUS = DP_WSTATUS_CLR_XBUS;
-
 }

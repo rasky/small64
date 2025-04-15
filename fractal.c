@@ -49,7 +49,7 @@ static void fracgen(uint8_t *tex, int idx, int len)
 {
     // tex = (void*)(((uint32_t)tex & 0x1FFFFFFF) | 0x80000000);
     int fc = texgen_framecount;
-    int itermax = 8; //MIN((framecount >> 6), 16);
+    int itermax = MIN(((framecount - 850) >> 6), 10);
 
     uint32_t c = 0;
     uint8_t* tex_end = tex + len;

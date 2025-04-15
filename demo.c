@@ -8,6 +8,10 @@
 #include "rdpq_macros.h"
 #include <math.h>
 
+#ifndef VIDEO_NTSC
+#define VIDEO_NTSC      1
+#endif
+
 #ifdef DEBUG
 #define DEBUG_NOINLINE   __attribute__((noinline))
 #else
@@ -51,7 +55,7 @@ void *vi_buffer_draw;
 void *vi_buffer_show;
 int vi_buffer_draw_idx;
 int framecount;
-const uint32_t *vi_regs_default;
+uint32_t *vi_regs_default;
 
 #define FB_WIDTH      320
 #define FB_HEIGHT     240
@@ -60,8 +64,8 @@ const uint32_t *vi_regs_default;
 
 static void vi_reset(int regstart)
 {
-    static const uint32_t vi_regs_p[3][14] =  {
-        {   /* PAL */
+    static uint32_t vi_regs_p[3][14] =  {
+        {   /* PAL */   
             0x3202, (uint32_t)FB_BUFFER_0,
             FB_WIDTH, 0, 0,
             0x0404233a, 0x00000271, 0x00150c69,
@@ -181,6 +185,7 @@ void bb_render(int16_t *buffer)
     //debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
 
+#include "direction.c"
 //#include "noise.c"
 #include "ucode.c"
 #include "scroller.c"
@@ -205,25 +210,33 @@ void demo(void)
         intro_phidx = draw_intro_setup();
 
         dp_begin_frame();
-        draw_intro(intro_phidx);
 
-        if (framecount > 450)
-        {
+        if (intro_phidx >= 0) {
+            draw_intro(intro_phidx);
+        }
+
+        if (framecount > T_FRACTAL) {
             fracgen_draw();
         }
 
-        if (framecount > 700) {
-            mesh_draw();
+        if (framecount > T_MESH) {
+            mesh_draw_async();
         }
-
-        // draw_scroller(vi_buffer_draw);
-        draw_credits();
 
         int16_t *ai_buffer = ai_poll();
          if (ai_buffer) {
              bb_render(ai_buffer);
              ai_poll_end();
          }
+
+         if (framecount > T_MESH) {
+            mesh_draw_wait();
+         }
+
+        // draw_scroller(vi_buffer_draw);
+        if (framecount > T_CREDITS) {
+            draw_credits();
+        }
     }
     while(1) {}
 }
