@@ -93,7 +93,7 @@ static void vi_reset(int regstart)
 
 static void vi_init(void)
 {
-    vi_reset();
+    vi_reset(0);
     *VI_ORIGIN = (uint32_t)FB_BUFFER_0;
     vi_buffer_draw = FB_BUFFER_0;
     vi_buffer_show = FB_BUFFER_1;
