@@ -124,7 +124,7 @@ static RdpList dl_setup_3d[] = {
 
 static void setup_3d(void)
 {
-    int torus_fade = MIN((framecount-1700)<<2, 0xFF);
+    int torus_fade = MIN((framecount-T_MESH)<<2, 0xFF);
     uint8_t *udl = (uint8_t*)((uint32_t)dl_setup_3d | 0xA0000000);
 
     udl[7] = torus_fade;
