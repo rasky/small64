@@ -30,10 +30,10 @@ int32_t rng = 1;
 
 typedef struct
 {
+    int64_t freq;
     uint32_t oscPhase;
     int32_t envLevel;
     int32_t envSustain;
-    int64_t freq;
     int32_t low, band;
     int32_t paramIndex;
 } SynthState;
