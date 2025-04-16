@@ -360,7 +360,7 @@ const unsigned char phrases[] = {
     // music: pestis
     0x8F, 0x76, 0x74, 0x0C, 0x67, 0x1A, 0x60, 0x72, 0x69, 0x74, 0x55, 0x0C, 0x74, 
 };
-const unsigned short phrases_off[] = {
+const unsigned char phrases_off[] = {
     0, // small
     5, // a 4k
     9, // on N64

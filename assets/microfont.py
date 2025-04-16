@@ -333,7 +333,10 @@ def main():
         
         # Create an array with offsets for each phrase
         offset = 0
-        f.write(f"const unsigned short phrases_off[] = {{\n")
+        if sum(len(phrase) for phrase in phrases) <= 255:
+            f.write(f"const unsigned char phrases_off[] = {{\n")    
+        else:
+            f.write(f"const unsigned short phrases_off[] = {{\n")
         for phrase in phrases:
             f.write(f"    {offset}, // {phrase}\n")
             offset += len(phrase)
