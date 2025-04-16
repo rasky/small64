@@ -2,6 +2,12 @@ ifneq ($(V),1)
 .SILENT:
 endif
 
+ifeq ($(OS),Windows_NT)
+  EXE := .exe
+else
+  EXE :=
+endif
+
 SOURCE_DIR=.
 # 0 = Shrinkler, 1 = UPKR
 COMPRESSION_ALGO=1
@@ -87,11 +93,26 @@ build/rsp_u3d.inc: rsp_u3d.S
 	./tools/ucode_to_inc.py $@.data.bin $@.text.bin build/rsp_u3d.inc
 	rm $@.elf $@.text.bin $@.data.bin
 
+# Upkr tool
+build/upkr$(EXE): tools/upkr/src/main.rs
+	@echo "    [CARGO] $@"
+	@mkdir -p build
+	cd tools/upkr && cargo build --release --quiet
+	cp tools/upkr/target/release/upkr$(EXE) $@
+
+# Upkr library
+build/libupkr.a:
+	@echo "    [CARGO] $@"
+	@mkdir -p build
+	cd tools/upkr/c_library && cargo build --release --quiet
+	cp tools/upkr/c_library/target/release/libupkr.a build/
+	cp tools/upkr/c_library/upkr.h build/
+
 # Swizzle tool
-build/swizzle3: tools/swizzle3.cpp
+build/swizzle3: tools/swizzle3.cpp build/libupkr.a
 	@echo "    [TOOL] $@"
 	@mkdir -p build
-	$(CXX) -O2 -std=c++20 -Itools -o $@ $<
+	$(CXX) -O2 -std=c++20 -Itools -Ibuild -o $@ $^
 
 # Swizzle the order of the sections in the final binary
 build/order.ld: $(STAGE2_OBJS) build/swizzle3
@@ -105,7 +126,7 @@ build/small.elf: small.1.ld build/order.ld $(STAGE1_OBJS) $(STAGE2_OBJS) build/r
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=stage1 -o $@ $(filter %.o,$^)
 
 # Extract and compress stages
-build/stage12.bin: build/small.elf
+build/stage12.bin: build/small.elf build/upkr$(EXE)
 	@echo "    [SHRINK] $@"
 	$(N64_OBJCOPY) -O binary -j .text.stage1 $< build/stage1.bin.raw
 	$(N64_OBJCOPY) -O binary -j .text.stage2 $< build/stage2.bin.raw
@@ -114,8 +135,8 @@ build/stage12.bin: build/small.elf
 	if [ ${COMPRESSION_ALGO} -eq 0 ]; then \
 	 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null; \
 	else \
-		$(UPKR) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
-		$(UPKR) --heatmap --parity 4 $@; \
+		build/upkr$(EXE) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
+		build/upkr$(EXE) --heatmap --parity 4 $@; \
 		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
 	fi
 

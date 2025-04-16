@@ -17,11 +17,13 @@
 #include <cstring>
 #include <filesystem>
 #include <unistd.h>
-#include <spawn.h>      // For posix_spawn and related functions
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <assert.h>
+
+// Upkr library (compiled by top-level Makefile)
+#include <upkr.h>
 
 // Include ELFIO (header-only)
 #include "elfio/elfio.hpp"
@@ -114,154 +116,6 @@ std::vector<uint8_t> buildFlatBinaryBuffer(const std::vector<SectionCandidate>& 
     return finalBuffer;
 }
 
-// -----------------------------------------------------------------------------
-// Run upkr via posix_spawn
-// -----------------------------------------------------------------------------
-
-int runUpkrPipe(const std::vector<uint8_t>& inputData, std::vector<uint8_t>& outputData) {
-    // Create two pipes:
-    // pipe_in: for writing inputData from parent to child's STDIN.
-    // pipe_out: for reading the compressed output from child's STDOUT.
-    int pipe_in[2];
-    int pipe_out[2];
-    if (pipe(pipe_in) < 0 || pipe(pipe_out) < 0) {
-        perror("Failed to create pipes");
-        return -1;
-    }
-
-    // Set up file actions for posix_spawn.
-    posix_spawn_file_actions_t actions;
-    if (posix_spawn_file_actions_init(&actions) != 0) {
-        perror("posix_spawn_file_actions_init failed");
-        return -1;
-    }
-    // Duplicate the read end of pipe_in to become STDIN (fd 0) for the child.
-    if (posix_spawn_file_actions_adddup2(&actions, pipe_in[0], STDIN_FILENO) != 0) {
-        perror("posix_spawn_file_actions_adddup2 for STDIN failed");
-        posix_spawn_file_actions_destroy(&actions);
-        return -1;
-    }
-    // Duplicate the write end of pipe_out to become STDOUT (fd 1) for the child.
-    if (posix_spawn_file_actions_adddup2(&actions, pipe_out[1], STDOUT_FILENO) != 0) {
-        perror("posix_spawn_file_actions_adddup2 for STDOUT failed");
-        posix_spawn_file_actions_destroy(&actions);
-        return -1;
-    }
-    // Close the unused ends of the pipes in the child.
-    posix_spawn_file_actions_addclose(&actions, pipe_in[0]);
-    posix_spawn_file_actions_addclose(&actions, pipe_in[1]);
-    posix_spawn_file_actions_addclose(&actions, pipe_out[0]);
-    posix_spawn_file_actions_addclose(&actions, pipe_out[1]);
-
-    pid_t pid;
-    // Build the argument array for upkr:
-    // The command is: g_upkr -1 --parity 4 -
-    char* const argv[] = {
-        const_cast<char*>(g_upkr.c_str()),
-        const_cast<char*>("-1"),
-        const_cast<char*>("--parity"),
-        const_cast<char*>("4"),
-        const_cast<char*>("-"),
-        nullptr
-    };
-
-    int spawnRet = posix_spawn(&pid, g_upkr.c_str(), &actions, nullptr, argv, NULL);
-    posix_spawn_file_actions_destroy(&actions);  // Clean up file actions
-    if (spawnRet != 0) {
-        errno = spawnRet;
-        perror("posix_spawn failed");
-        return spawnRet;
-    }
-
-    // In the parent, close the ends that are not used.
-    close(pipe_in[0]);   // Parent does not need the read end of pipe_in.
-    close(pipe_out[1]);  // Parent does not need the write end of pipe_out.
-
-    // Write the inputData to the child's STDIN.
-    size_t totalWritten = 0;
-    while (totalWritten < inputData.size()) {
-        ssize_t written = write(pipe_in[1], inputData.data() + totalWritten, inputData.size() - totalWritten);
-        if (written < 0) {
-            perror("write failed");
-            break;
-        }
-        totalWritten += written;
-    }
-    // Close the write end to signal EOF to the child.
-    close(pipe_in[1]);
-
-    // Read the child's STDOUT until EOF.
-    outputData.clear();
-    const size_t bufSize = 4096;
-    char buffer[bufSize];
-    ssize_t bytesRead;
-    while ((bytesRead = read(pipe_out[0], buffer, bufSize)) > 0) {
-        outputData.insert(outputData.end(), buffer, buffer + bytesRead);
-    }
-    // Close the read end.
-    close(pipe_out[0]);
-
-    // Wait for the spawned child process to finish.
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0) {
-        perror("waitpid failed");
-        return -1;
-    }
-    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
-}
-
-int runUpkr(const std::string& candidateFile) {
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork failed");
-        return -1;
-    }
-    if (pid == 0) {
-        // Child process: detach from parent's group.
-        if (setpgid(0, 0) < 0) {
-            perror("setpgid failed");
-            _exit(1);
-        }
-        // Redirect stdout and stderr to /dev/null.
-        int devNull = open("/dev/null", O_WRONLY);
-        if (devNull < 0) {
-            perror("open /dev/null failed");
-            _exit(1);
-        }
-        dup2(devNull, STDOUT_FILENO);
-        dup2(devNull, STDERR_FILENO);
-        close(devNull);
-        // Prepare arguments for "upkr -1 <candidateFile>"
-        const char* args[] = { g_upkr.c_str(), "-1", "--parity", "4", candidateFile.c_str(), nullptr };
-        execvp(g_upkr.c_str(), const_cast<char* const*>(args));
-        perror("execvp failed");
-        _exit(1);
-    }
-    int status = 0;
-    if (waitpid(pid, &status, 0) < 0) {
-        perror("waitpid failed");
-        return -1;
-    }
-    return status;
-}
-
-// ----------------------------------------------------------------------------
-// Utility: generate a unique temporary filename with given suffix.
-std::string generateTempFilename(void) {
-    // Use POSIX tmpnam() to generate a unique temporary filename.  
-    // Note: This is not thread-safe, but we are using it in a controlled manner.
-    char tempName[] = ".swizzle3_temp_XXXXXX";
-    int fd = mkstemp(tempName);
-    if (fd == -1) {
-        perror("mkstemp failed");
-        return "";
-    }
-    close(fd);  // Close the file descriptor, we only need the name.
-    // Remove the file to avoid cluttering /tmp.
-    unlink(tempName);    
-    return std::string(tempName);
-}
-
 // Evaluate a candidate permutation by building the flat binary,
 // sending it through upkr, and returning the compressed data size as cost.
 // If the flat binary is empty (i.e. invalid due to gp-relative rule), returns MAX_COST.
@@ -273,41 +127,12 @@ size_t evaluatePermutation(const std::vector<size_t>& permutation,
         // Permutation is invalid because a gp-relative section lies outside its limit.
         return MAX_COST;
     }
-    #if 0
     std::vector<uint8_t> compressedOutput;
-    int ret = runUpkrPipe(flatBuffer, compressedOutput);
-    if (ret != 0) {
-        std::cerr << "upkr failed (exit code " << ret << ") when evaluating candidate permutation.\n";
-        return MAX_COST;
-    }
-    return compressedOutput.size();
-    #else
-    std::string tempFilename = generateTempFilename();
-    std::ofstream ofs(tempFilename, std::ios::binary);
-    if (!ofs) {
-        std::cerr << "Error opening temporary file " << tempFilename << "\n";
-        return MAX_COST;
-    }
-    ofs.write(reinterpret_cast<const char*>(flatBuffer.data()), flatBuffer.size());
-    ofs.close();
+    compressedOutput.resize(flatBuffer.size() * 2);
 
-    int ret = runUpkr(tempFilename);
-    if (ret != 0) {
-        std::cerr << "upkr failed on " << tempFilename << "\n";
-        fs::remove(tempFilename);
-        return MAX_COST;
-    }
-    std::string upkrFilename = tempFilename + ".upk";
-    size_t cost = MAX_COST;
-    try {
-        cost = fs::file_size(upkrFilename);
-    } catch (...) {
-        cost = MAX_COST;
-    }
-    fs::remove(tempFilename);
-    fs::remove(upkrFilename);
+    size_t cost = upkr_compress(compressedOutput.data(), compressedOutput.size(), 
+            flatBuffer.data(), flatBuffer.size(), 1);
     return cost;
-    #endif
 }
 
 // -----------------------------------------------------------------------------
