@@ -103,9 +103,8 @@ stage2_decomp:
     # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
     # inbuf = DMEM address of compressed stage12.
     li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
-    li decomp_return, 0x80000000     # Stage2 entrypoint (cached address)
-    addu $sp, $v0, decomp_return     # $sp start at 0x8000'0000+memsize
-    addiu decomp_return, STAGE1_SIZE
+    move $sp, $v0                 # $sp start at 0x8000'0000+memsize
+    li decomp_return, STAGE2_ENTRYPOINT # FIXME: is there a way to avoid the double instruction here
 #if !RUNNABLE_TITLE
     li outbuf_end, 0xB0000000        # Set outbuf_end here if it couldn't fit the header
 #endif

@@ -43,15 +43,17 @@ SECTIONS {
         _gp = . + 0x8000;
         __stage2 = .;
         __stage2_start = .;
+        INCLUDE build/order.ld
+        /*
         KEEP(build/demo.o(.text.demo))
         build/demo.o(.text .text.*)
         build/minilib.o
-        /*build/torus.o*/
         build/demo.o(.rodata .rodata.*)
         build/demo.o(.data .data.*)
         build/demo.o(.sdata .sdata.*)
         build/demo.o(.sbss .sbss.*)
         build/demo.o(.bss .bss.*)
+        */
         . = ALIGN(8);
     } > ram
 

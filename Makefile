@@ -19,6 +19,7 @@ N64_GCCPREFIX_TRIPLET = $(N64_GCCPREFIX)/bin/mips64-elf-
 N64_CC = $(N64_GCCPREFIX_TRIPLET)gcc
 N64_AS = $(N64_GCCPREFIX_TRIPLET)as
 N64_LD = $(N64_GCCPREFIX_TRIPLET)ld
+N64_NM = $(N64_GCCPREFIX_TRIPLET)nm
 N64_OBJCOPY = $(N64_GCCPREFIX_TRIPLET)objcopy
 N64_OBJDUMP = $(N64_GCCPREFIX_TRIPLET)objdump
 N64_SIZE = $(N64_GCCPREFIX_TRIPLET)size
@@ -49,8 +50,8 @@ SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
-OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
-OBJS += build/demo.o build/minilib.o #build/torus.o
+STAGE1_OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
+STAGE2_OBJS = build/demo.o #build/minilib.o #build/torus.o
 
 # Sources used to build the final compressed binary
 FINAL_SRCS = stage0.S stage0_bins.S
@@ -86,8 +87,20 @@ build/rsp_u3d.inc: rsp_u3d.S
 	./tools/ucode_to_inc.py $@.data.bin $@.text.bin build/rsp_u3d.inc
 	rm $@.elf $@.text.bin $@.data.bin
 
-# Build initial binary with all stages (uncompressed)
-build/small.elf: small.1.ld $(OBJS) build/rsp_u3d.inc
+# Swizzle tool
+build/swizzle3: tools/swizzle3.cpp
+	@echo "    [TOOL] $@"
+	@mkdir -p build
+	$(CXX) -O2 -std=c++20 -Itools -o $@ $<
+
+# Swizzle the order of the sections in the final binary
+build/order.ld: $(STAGE2_OBJS) build/swizzle3
+	@echo "    [SWIZZLE] $@"
+	@mkdir -p build
+	UPKR_PATH=$(UPKR) build/swizzle3 $@ $(filter %.o,$^)
+
+# Build initial binary with all stages (uncompressed), using the optimized order
+build/small.elf: small.1.ld build/order.ld $(STAGE1_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc
 	@echo "    [LD] $@"
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=stage1 -o $@ $(filter %.o,$^)
 
@@ -120,6 +133,7 @@ build/heatmap.html: build/stage12.bin
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
+		-DSTAGE2_ENTRYPOINT=0x$(shell $(N64_NM) build/small.elf | grep __stage2_entrypoint | cut -d ' ' -f1) \
 		-DCOMPRESSION_ALGO=$(COMPRESSION_ALGO) \
 		-o build/small.compressed.elf \
 		$(FINAL_SRCS)

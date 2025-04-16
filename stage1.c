@@ -145,5 +145,5 @@ int stage1(void)
     extern char _gp;
     asm("la $gp, %0"::"i"(&_gp));
 
-    return memsize;
+    return memsize+0x80000000; // return the initial stack pointer position
 }
