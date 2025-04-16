@@ -101,7 +101,7 @@ uint32_t mesh(void)
 
 static RdpList dl_setup_3d[] = {
     [0] = RdpSetEnvColor(RGBA32(0x00, 0x00, 0x00, 0x1)),
-    [1] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 0x0a00, 8),
+    [1] = RdpSetTexImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 0, 8),
            RdpSetTile(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_32BIT, 8, 0, TILE0) |
                 RdpSetTile_Mask(3, 3) | RdpSetTile_Scale(3, 3),
            RdpLoadTileI(TILE0, 0, 0, 8, 8),
@@ -124,9 +124,10 @@ static RdpList dl_setup_3d[] = {
 static void setup_3d(void)
 {
     int torus_fade = MIN((framecount-T_MESH)<<2, 0xFF);
-    uint8_t *udl = (uint8_t*)((uint32_t)dl_setup_3d | 0xA0000000);
-
-    udl[7] = torus_fade;
+    uint8_t *udl8 = (uint8_t*)((uint32_t)dl_setup_3d | 0xA0000000);
+    uint32_t *udl32 = (uint32_t*)((uint32_t)dl_setup_3d | 0xA0000000);
+    udl8[7] = torus_fade;
+    udl32[1*2+1] = (uint32_t)music_render+32;
 
     dp_send(dl_setup_3d, dl_setup_3d+dl_setup_3d_cnt);
 }
