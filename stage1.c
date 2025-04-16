@@ -132,7 +132,10 @@ int stage1(void)
     const int memsize = NUM_RDRAM_BANKS * 2 * 1024 * 1024;
 #endif
 
+    #if 0
+    // If needed, you can save the TV type in the RDRAM for later use.
     *IPL3_TV_TYPE = ipl2_tvType;
+    #endif
 
     // Clear COP0 cache. At boot, it may contain stale data that might cause
     // invalid cache writes.

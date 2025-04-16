@@ -139,8 +139,13 @@ static void ai_poll_end(void)
 
 static void ai_init(void)
 {
-    static const uint16_t bitrate[3] = { AI_CALC_DACRATE(49656530)-1, AI_CALC_DACRATE(48681818)-1, AI_CALC_DACRATE(48628322)-1 };
-    *AI_DACRATE = bitrate[get_tv_type()];
+#if VIDEO_TYPE == 0
+    *AI_DACRATE = AI_CALC_DACRATE(49656530)-1;
+#elif VIDEO_TYPE == 1
+    *AI_DACRATE = AI_CALC_DACRATE(48681818)-1;
+#elif VIDEO_TYPE == 2
+    *AI_DACRATE = AI_CALC_DACRATE(48628322)-1;
+#endif
     *AI_BITRATE = 0xf;  // up to 44100; then you might need 0xe. Use AI_CALC_BITRATE to calculate the correct value
     ai_buffer_offset = (uint32_t)AI_BUFFERS;
     ai_poll_end(); // force a first empty buffer to be played back
