@@ -34,9 +34,6 @@ namespace fs = std::filesystem;
 // GLOBAL VARIABLES AND CONSTANTS
 // -----------------------------------------------------------------------------
 
-// Global string with the upkr executable path, read from environment variable "UPKR_PATH".
-std::string g_upkr;
-
 // Fixed load address when building the flat binary.
 const uint32_t LOAD_ADDRESS = 0x80000000;
 
@@ -266,14 +263,6 @@ int main(int argc, char** argv) {
         ifs.close();
         argIndex += 2;
     }
-
-    // 2. Read upkr path from environment variable UPKR_PATH.
-    char* envUpkr = getenv("UPKR_PATH");
-    if (envUpkr == nullptr) {
-        std::cerr << "Environment variable UPKR_PATH is not set.\n";
-        return EXIT_FAILURE;
-    }
-    g_upkr = std::string(envUpkr);
 
     if (argc - argIndex < 2) {
         std::cerr << "Usage: " << argv[0] << " [--prefix prefix_file] <output_include_file> <input1.o> [input2.o] ...\n";

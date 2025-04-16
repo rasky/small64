@@ -53,7 +53,6 @@ N64_RSPASFLAGS = -march=mips1 -mabi=32 -Wa,--fatal-warnings
 N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 
 SHRINKER ?= ../Shrinkler/build/native/Shrinkler
-UPKR ?= ../upkr/target/release/upkr
 
 # Objects used for the first compilation step (uncompressed)
 STAGE1_OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
@@ -118,7 +117,7 @@ build/swizzle3: tools/swizzle3.cpp build/libupkr.a
 build/order.ld: $(STAGE2_OBJS) build/swizzle3
 	@echo "    [SWIZZLE] $@"
 	@mkdir -p build
-	UPKR_PATH=$(UPKR) build/swizzle3 $@ $(filter %.o,$^)
+	build/swizzle3 $@ $(filter %.o,$^)
 
 # Build initial binary with all stages (uncompressed), using the optimized order
 build/small.elf: small.1.ld build/order.ld $(STAGE1_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc
