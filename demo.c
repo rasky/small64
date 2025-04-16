@@ -159,22 +159,30 @@ static void dp_send(void *dl, void *dl_end)
     dp_wait();
 }
 
+#include "direction.c"
+
 void dp_begin_frame(void)
 {
     static RdpList dlist[] = {
         RdpSetColorImage(RDP_TILE_FORMAT_RGBA, RDP_TILE_SIZE_16BIT, 320, 0),
         RdpSetZImage(Z_BUFFER),
         RdpSetClippingI(0, 0, 320, 240),
-        RdpSetOtherModes(SOM_CYCLE_1 | SOM_ZSOURCE_PRIM | SOM_Z_WRITE),
+        RdpSetOtherModes(SOM_CYCLE_FILL),
+        RdpSetPrimColor(RGBA32(0x00, 0x00, 0x00, 0xFF)),
+        RdpFillRectangleI(0, 0, 320, 240),
+        RdpSetOtherModes(SOM_CYCLE_1 | SOM_ZSOURCE_PRIM | SOM_Z_WRITE | SOM_RGBDITHER_NOISE | SOM_ALPHACOMPARE_NOISE),
         RdpSetCombine(RDPQ_COMBINER_FLAT),
         RdpSetPrimDepth(0xFFFE),
-        RdpSetPrimColor(RGBA32(0x0, 0x00, 0x0, 0xFF)),
-        RdpFillRectangleI(0, 0, 320, 240),
+        RdpSetPrimColor(RGBA32(0x30, 0x30, 0x30, 0x20)),
+ [10] = RdpFillRectangleI(0, 0, 320, 240),
         RdpSyncFull(),
     };
 
     uint32_t *udl = (uint32_t*)((uint32_t)dlist | 0xA0000000);
     udl[1] = (uint32_t)vi_buffer_draw;
+    // blank the second fillrect; this is just to save precious fill time
+    // can be disabled for codesize
+    if (framecount > T_FRACTAL) udl[10*2] = 0;
     dp_send(dlist, dlist + sizeof(dlist)/sizeof(uint64_t));
 }
 
@@ -188,7 +196,6 @@ void bb_render(int16_t *buffer)
     //debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
 }
 
-#include "direction.c"
 //#include "noise.c"
 #include "ucode.c"
 #include "scroller.c"
