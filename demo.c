@@ -64,7 +64,7 @@ int framecount;
 
 static const uint32_t vi_regs_p[14] = {
 #if VIDEO_TYPE == 0
-    /* PAL */   
+    /* PAL */
     0x3202, (uint32_t)FB_BUFFER_0,
     FB_WIDTH, 0, 0,
     0x0404233a, 0x00000271, 0x00150c69,
