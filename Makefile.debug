@@ -2,7 +2,7 @@ BUILD_DIR=build-debug
 include $(N64_INST)/include/n64.mk
 
 src = demo.c minilib.c main_debug.c
-asm = rsp_u3d.S
+asm = rsp_u3d.S torus.S
 
 N64_CFLAGS += -DDEBUG -Os
 
