@@ -58,7 +58,8 @@
     # vtx.pos[2]
     sra $v0, sinv0, SHIFTZ
     sb $v0, 0(outptr)
-    addiu outptr, outptr, 2
+    addiu outptr, outptr, 1
+    addiu outptr, outptr, 1
 
     # vtx.normal[0]
     cos \arg
@@ -69,8 +70,10 @@
     gencoord cosv0
 
     # vtx.normal[2]
-    sb sinv0, 0(outptr)
-    addiu outptr, outptr, 2
+    addiu $v0, sinv0, 0
+    sb $v0, 0(outptr)
+    addiu outptr, outptr, 1
+    addiu outptr, outptr, 1
 .endm
 
 gentorus:
