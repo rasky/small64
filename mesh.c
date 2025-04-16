@@ -139,31 +139,58 @@ static uint16_t MESH_SCALES[2] = {
   (uint16_t)(0.3f * 0x7FFF),
 };
 
-static void mesh_draw_async(void)
+static float mesh_sf = 1.0f;
+
+static void mesh_setup(void)
 {
     setup_3d();
 
     xangle += 0.01f;
     yangle += 0.015f;
+
+    if (Synths[0].envLevel)
+        mesh_sf *= 0.99f;
+    else {
+        mesh_sf *= 1.1f;
+        if (mesh_sf > 1.0f)
+            mesh_sf = 1.0f;
+    }
+}
+
+__attribute__((noinline))
+static void mesh_draw_single(int i)
+{
+    float scale = MESH_SCALES[i];
+    if (i == 0) {
+        scale *= mesh_sf;
+    }
     
-    for(int i=0; i<2; ++i)
+    ucode_sync();
+    ucode_set_srt(scale, (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
+
+    *DP_STATUS = DP_WSTATUS_SET_XBUS;
+    *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
+    *DP_END = 0x30;
+
+    if (framecount > T_ANIMATE && framecount < T_ANIMSTOP) {
+        static float dispTimer = -3;
+        float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
+        ucode_set_displace(dispFactor * 0x7FFF);
+        if(dispTimer > MM_PI*2)dispTimer = -2;
+        dispTimer += 0.01f;
+    } else {
+      ucode_set_displace(0);
+    }
+
+    ucode_run();
+}
+
+
+static void mesh_draw_async(int nmeshes)
+{
+    for(int i=0; i<nmeshes; ++i)
     {
-      ucode_sync();
-      ucode_set_srt(MESH_SCALES[i], (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
-
-      *DP_STATUS = DP_WSTATUS_SET_XBUS;
-      *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
-      *DP_END = 0x30;
-
-      if (framecount > T_ANIMATE) {
-          static float dispTimer = -3;
-          float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
-          ucode_set_displace(dispFactor * 0x7FFF);
-          if(dispTimer > MM_PI*2)dispTimer = -2;
-          dispTimer += 0.01f;
-      }
-
-      ucode_run();
+        mesh_draw_single(i);
     }
 }
 
