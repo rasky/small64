@@ -15,14 +15,17 @@
 
 #define R          64
 
-#define v          $t0
-#define end         $t1
-#define outptr      $t4
-#define rcv0        $t5
-#define u0          $t7
-#define u1          $t8
-#define sinv0       $k0
-#define cosv0       $k1
+#define outptr      $t0
+#define u0          $t1
+#define u1          $t3
+#define v           $t6
+
+#define rcv0        $t4
+#define cosv0       $t5
+#define sinv0       $at
+#define end         $a2
+
+#define ret_addr    $a3
 
 .macro gencoord m
     addiu $v1, \m, 0
@@ -34,13 +37,13 @@
 .endm
 
 .macro cos arg
-  jal mm_sin_s8
-    addiu $a0, \arg, COS_OFFSET
+    jal mm_sin_s8
+     addiu $a0, \arg, COS_OFFSET
 .endm
 
 .macro sin arg
-  jal mm_sin_s8
-    addiu $a0, \arg, 0
+    jal mm_sin_s8
+     addiu $a0, \arg, 0
 .endm
 
 .macro do_vert arg
@@ -71,12 +74,11 @@
 .endm
 
 gentorus:
-    addiu $sp, $sp, -16
-    sw $ra, 12($sp)
+    addiu ret_addr, $ra, 0
     addiu outptr, $a0, 0
-    li end, 0x100
 
     li u0, 0
+    li end, 0x100
 
     # Loop over the torus patches
     # do {
@@ -84,11 +86,11 @@ gentorus:
     li v, 0
     li sinv0, 0
     li cosv0, 0x7f
-    addiu u1, u0, STEP_MAJOR
 
     # int rcv0 = R + (cosV0 >> shiftZ);
     sra $v0, cosv0, SHIFTZ
     addiu rcv0, $v0, R
+    addiu u1, u0, STEP_MAJOR
 
     # loop over each quad in the current patch
     # do {
@@ -117,12 +119,12 @@ gentorus:
     # vtx[4] = vtx[0]
     ld $v0, -32(outptr)
     sd $v0, 0(outptr)
-    addiu outptr, outptr, 8
+    addiu outptr, outptr, 16
 
     # vtx[5] = vtx[2]
-    ld $v0, -24(outptr)
-    sd $v0, 0(outptr)
-    addiu outptr, outptr, 8
+    # (use suboptimal offset for store because we can reuse the load offset)
+    ld $v0, -32(outptr)
+    sd $v0, -8(outptr)
 
     # quad loop tail
     # } while (++v != end);
@@ -137,9 +139,7 @@ gentorus:
       nop
 
     # done
-
-    lw $ra, 12($sp)
-    jr $ra
-     addiu $sp, $sp, 16
+    jr ret_addr
+      nop
 
 .size gentorus, .-gentorus
