@@ -1,8 +1,12 @@
 use std::ffi::c_int;
 
 // the upkr config to use, this can be modified to use other configs
+// rasky: configure parity
 fn config() -> upkr::Config {
-    upkr::Config::default()
+    upkr::Config{
+        parity_contexts: 4,
+        ..upkr::Config::default()
+    }
 }
 
 #[no_mangle]
