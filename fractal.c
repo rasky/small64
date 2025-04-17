@@ -109,6 +109,7 @@ static uint64_t dl_draw_bitmap[] = {
 
 #define dl_draw_bitmap_cnt  (sizeof(dl_draw_bitmap) / sizeof(uint64_t))
 
+__attribute__((noinline))
 static void fracgen_draw(void)
 {
     int tbuf_offset = (framecount & 1) * BITMAP_WIDTH*BITMAP_HEIGHT/2;
