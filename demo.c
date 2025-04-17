@@ -173,7 +173,7 @@ void dp_begin_frame(void)
         RdpSetZImage(Z_BUFFER),
         RdpSetClippingI(0, 0, 320, 240),
         RdpSetOtherModes(SOM_CYCLE_FILL),
-        RdpSetPrimColor(RGBA32(0x00, 0x00, 0x00, 0xFF)),
+        RdpSetFillColor16(0),
         RdpFillRectangleI(0, 0, 320, 240),
         RdpSetOtherModes(SOM_CYCLE_1 | SOM_ZSOURCE_PRIM | SOM_Z_WRITE | SOM_RGBDITHER_NOISE | SOM_ALPHACOMPARE_NOISE),
         RdpSetCombine(RDPQ_COMBINER_FLAT),
