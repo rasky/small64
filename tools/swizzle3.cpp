@@ -289,7 +289,7 @@ int main(int argc, char** argv) {
             ELFIO::section* sec = reader.sections[i];
             std::string sec_name = sec->get_name();
             // Filter out common metadata.
-            if (sec_name == ".symtab" || sec_name == ".strtab" || sec_name == ".shstrtab")
+            if (sec_name == ".symtab" || sec_name == ".strtab" || sec_name == ".shstrtab" || sec_name == ".comment" || sec_name == ".pdr")
                 continue;
             if (sec_name.find(".debug") == 0)
                 continue;

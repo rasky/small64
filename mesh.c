@@ -15,7 +15,7 @@ typedef struct {
 static float xangle = MM_PI/8;
 static float yangle = MM_PI/4;
 
-uint32_t mesh(void)
+static uint32_t mesh(void)
 {
     // Number of segments for the major (u) and minor (v) circles.
     const int numMajor = 32; // Segments along the torus' main circle.

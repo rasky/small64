@@ -1,0 +1,7 @@
+{
+    "makefile.configureOnOpen": true,
+    "files.associations": {
+        "*.inc": "c",
+        "minimath.h": "c"
+    }
+}
