@@ -12,7 +12,20 @@ SOURCE_DIR=.
 # 0 = Shrinkler, 1 = UPKR
 COMPRESSION_ALGO=1
 COMPRESSION_LEVEL=9
-VIDEO_TYPE ?= 1        # 0 = PAL, 1 = NTSC, 2 = MPAL
+
+# 0 = PAL, 1 = NTSC, 2 = MPAL
+VIDEO_TYPE ?= 1
+
+ifeq ($(VIDEO_TYPE),0)
+ROM_NAME = small64_pal.z64
+else ifeq ($(VIDEO_TYPE),1)
+ROM_NAME = small64_ntsc.z64
+else ifeq ($(VIDEO_TYPE),2)
+ROM_NAME = small64_mpal.z64
+else
+$(error VIDEO_TYPE must be 0, 1 or 2)
+endif
+
 
 ifeq ($(shell uname -s),Darwin)
 	SED=gsed
@@ -66,7 +79,7 @@ N64_CFLAGS += -DNDEBUG -DPROD -DVIDEO_TYPE=$(VIDEO_TYPE)
 
 build/demo.o: N64_CFLAGS += -G1024
 
-all: small.z64
+all: $(ROM_NAME)
 
 build/%.o: %.c
 	@echo "    [CC] $@"
@@ -149,7 +162,7 @@ build/heatmap.html: build/stage12.bin
 	open $@
 
 # Build final binary with compressed stages
-%.z64: build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
+$(ROM_NAME): build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
@@ -161,14 +174,14 @@ build/heatmap.html: build/stage12.bin
 	$(N64_SIZE) -G build/small.compressed.elf
 	$(N64_OBJCOPY) -O binary build/small.compressed.elf $@
 
-run: small.z64
-	sc64deployer upload --direct small.z64 && sc64deployer debug --isv 0x3FF0000
+run: $(ROM_NAME)
+	sc64deployer upload --direct $(ROM_NAME) && sc64deployer debug --isv 0x3FF0000
 
 disasm: build/small.elf
 	$(N64_OBJDUMP) -D build/small.elf
 
 clean:
-	rm -rf build small.z64 run
+	rm -rf build $(ROM_NAME) run
 
 -include $(wildcard build/*.d)
 

@@ -10,7 +10,7 @@
 
 // 0:PAL, 1:NTSC, 2:MPAL
 #ifndef VIDEO_TYPE
-#define VIDEO_TYPE      1
+#error VIDEO_TYPE not defined
 #endif
 
 #ifdef DEBUG
