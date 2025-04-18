@@ -161,7 +161,7 @@ static void mesh_setup(void)
     *DP_STATUS = DP_WSTATUS_SET_XBUS;
 }
 
-static inline void mesh_draw_wait(void)
+static void mesh_draw_wait(void)
 {
     ucode_sync();
     dp_wait();
