@@ -61,6 +61,13 @@ void *vi_buffer_draw;
 void *vi_buffer_show;
 int vi_buffer_draw_idx;
 int framecount;
+uint32_t vblank_time;
+
+#if VIDEO_TYPE == 0    // PAL
+#define TIME_30FPS     (93750000 / 2 / 25)
+#else // NTSC,MPAL
+#define TIME_30FPS     (93750000 / 2 / 30)
+#endif
 
 static const uint32_t vi_regs_p[14] = {
 #if VIDEO_TYPE == 0
@@ -102,6 +109,8 @@ static void vi_init(void)
 {
     vi_reset(0);
     *VI_ORIGIN = (uint32_t)FB_BUFFER_0;
+    while (*VI_V_CURRENT != 2) {}
+    vblank_time = C0_COUNT();
     vi_buffer_draw = FB_BUFFER_0;
     vi_buffer_show = FB_BUFFER_1;
 }
@@ -109,8 +118,12 @@ static void vi_init(void)
 static void vi_wait_vblank(void)
 {
     // wait for line change at the beginning of the vblank
+    uint32_t target = vblank_time + TIME_30FPS;
+    while (C0_COUNT() < target) {}
     while (*VI_V_CURRENT != 2) {}
-    while (*VI_V_CURRENT != 4) {}
+    vblank_time = C0_COUNT();
+    framecount++;
+
     *VI_ORIGIN = (uint32_t)vi_buffer_draw;
     SWAP(vi_buffer_draw, vi_buffer_show);
 }
@@ -220,11 +233,10 @@ void demo(void)
     gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
-    //framecount=700;
+    framecount=0;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
-        framecount++;
         intro_phidx = draw_intro_setup();
 
         dp_begin_frame();

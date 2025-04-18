@@ -5,7 +5,7 @@ src = demo.c minilib.c main_debug.c
 asm = rsp_u3d.S torus.S
 
 N64_CFLAGS += -DDEBUG -Os
-N64_CFLAGS += -DVIDEO_TYPE=1
+N64_CFLAGS += -DVIDEO_TYPE=0
 
 all: small64_debug.z64
 

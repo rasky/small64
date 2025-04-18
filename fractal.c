@@ -49,7 +49,7 @@ static void fracgen(uint8_t *tex, int idx, int len)
 {
     // tex = (void*)(((uint32_t)tex & 0x1FFFFFFF) | 0x80000000);
     int fc = texgen_framecount;
-    int itermax = MIN(((framecount - 850) >> 6), 10);
+    int itermax = MIN(((framecount - T_FRACTAL) >> 5), 10);
 
     uint32_t c = 0;
     uint8_t* tex_end = tex + len;
@@ -109,13 +109,14 @@ static uint64_t dl_draw_bitmap[] = {
 
 #define dl_draw_bitmap_cnt  (sizeof(dl_draw_bitmap) / sizeof(uint64_t))
 
+
 __attribute__((noinline))
 static void fracgen_draw(void)
 {
-    int tbuf_offset = (framecount & 1) * BITMAP_WIDTH*BITMAP_HEIGHT/2;
-    fracgen(tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH * BITMAP_HEIGHT/2);
+    int tbuf_offset = 0; //(framecount & 1) * BITMAP_WIDTH*BITMAP_HEIGHT/2;
+    fracgen(tbuf_calc_frame + tbuf_offset, tbuf_offset, BITMAP_WIDTH * BITMAP_HEIGHT);
 
-    if ((framecount & 1)) {
+    if ((framecount & 1) || 1) {
         texgen_framecount++;
 
         uint32_t *udl = UncachedAddr(dl_draw_bitmap);
@@ -125,4 +126,5 @@ static void fracgen_draw(void)
     }
 
     dp_send(dl_draw_bitmap, dl_draw_bitmap + dl_draw_bitmap_cnt);
+
 }

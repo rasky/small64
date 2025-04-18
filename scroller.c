@@ -90,17 +90,17 @@ static int draw_intro_setup(void)
 
     int fc = framecount - T_INTRO;
     if (fc < 0) return -1;
-    int intro_phidx = fc >> 7;
+    int intro_phidx = fc >> 6;
     if (intro_phidx > 2) {
         vi_reset(2);
         return intro_phidx;
     }
 
     unsigned int rand = C0_COUNT();
-    if ((visible && (rand&0xff) < 32) || fc == 1) {
+    if ((visible && (rand&0xff) < 24) || fc == 1) {
         visible = false;
         *VI_H_VIDEO = 0x0;
-    } else if (!visible && (rand&0xff) < 8) {
+    } else if (!visible && (rand&0xff) < 8*3) {
         visible = true;
         *VI_X_SCALE = 0x140 + ((rand>>8) & 0x7F);
         *VI_Y_SCALE = 0x80 + ((rand>>16) & 0x7F);
@@ -118,21 +118,21 @@ static void draw_intro(int phidx)
 
 static void draw_credits(void)
 {
-    static int xpos0[4] = { 120, 80, 120, 120 };
+    static int xpos0[4] = { 120, 90, 120, 120 };
     const int PH_START = 3;
 
     int fc = framecount - T_CREDITS;
-    int phidx = fc >> 8;
+    int phidx = fc >> 7;
     if (phidx > 3) return;
 
-    fc &= 255;
+    fc &= 127;
     int xpos = xpos0[phidx];
-    if ((fc & 128) == 0) {
-        float fcf = (fc & 127) * (1.0f / 127.0f);
+    if ((fc & 64) == 0) {
+        float fcf = (fc & 63) * (1.0f / 63.0f);
         xpos += (400-xpos) * (1-fcf*fcf*fcf*fcf*fcf);
     } 
 
-    uint32_t color = (fc > 0xD0 && fc & 4) ? colors[1] : colors[0];
+    uint32_t color = (fc > 0xD0/2 && fc & 2) ? colors[1] : colors[0];
 
     phidx += PH_START;
     int off = phrases_off[phidx];

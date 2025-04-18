@@ -136,8 +136,8 @@ static void mesh_draw_async(void)
 {
     setup_3d();
 
-    xangle += 0.01f;
-    yangle += 0.015f;
+    xangle += 0.01f*2;
+    yangle += 0.015f*2;
 
     // mesh();
     ucode_set_srt(1.0f, (float[]){xangle, yangle, 0.0f}, 160<<2, 120<<2);
