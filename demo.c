@@ -198,9 +198,6 @@ void dp_begin_frame(void)
 
     uint32_t *udl = (uint32_t*)((uint32_t)dlist | 0xA0000000);
     udl[1] = (uint32_t)vi_buffer_draw;
-    // blank the second fillrect; this is just to save precious fill time
-    // can be disabled for codesize
-    //if (framecount > T_FRACTAL) udl[10*2] = 0;
     dp_send(dlist, dlist + sizeof(dlist)/sizeof(uint64_t));
 }
 
@@ -236,12 +233,8 @@ void demo(void)
     // framecount = T_MESH2;
     // currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 25;
     int intro_phidx = 0;
-    while(1) {
+    while(framecount < T_END) {
         vi_wait_vblank();
-        if (framecount > T_END) {
-            *VI_H_VIDEO = 0x0;
-            while(1){}
-        }
 
         intro_phidx = draw_intro_setup();
 
@@ -268,12 +261,14 @@ void demo(void)
 
         if (framecount > T_MESH) {
            mesh_draw_wait();
+           mesh_draw_finish();
         }
 
-        // draw_scroller(vi_buffer_draw);
         if (framecount > T_CREDITS) {
             draw_credits();
         }
     }
+
+    *VI_H_VIDEO = 0x0;
     while(1) {}
 }

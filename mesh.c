@@ -161,6 +161,12 @@ static void mesh_setup(void)
     *DP_STATUS = DP_WSTATUS_SET_XBUS;
 }
 
+static inline void mesh_draw_wait(void)
+{
+    ucode_sync();
+    dp_wait();
+}
+
 static void mesh_draw_async(int nmeshes)
 {
     for(int i=0; i<nmeshes; ++i)
@@ -169,8 +175,7 @@ static void mesh_draw_async(int nmeshes)
         scale *= mesh_sf;
         
         if (i > 0) {
-            ucode_sync();
-            dp_wait();
+            mesh_draw_wait();
         }
         ucode_set_srt(scale, (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
     
@@ -178,7 +183,8 @@ static void mesh_draw_async(int nmeshes)
             static float dispTimer = -2;
             float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
             ucode_set_displace(dispFactor * 0x7FFF);
-            if(dispTimer > MM_PI*2)dispTimer = -2;
+            if(dispTimer > MM_PI*2)
+                dispTimer = -2;
             dispTimer += 0.01f*2;
         } else {
             ucode_set_displace(0);
@@ -188,9 +194,7 @@ static void mesh_draw_async(int nmeshes)
     }
 }
 
-static void mesh_draw_wait(void)
+static void mesh_draw_finish(void)
 {
-    ucode_sync();
-    dp_wait();
     *DP_STATUS = DP_WSTATUS_CLR_XBUS;
 }
