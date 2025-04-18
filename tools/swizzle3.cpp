@@ -353,7 +353,7 @@ int main(int argc, char** argv) {
     // 5. Multiple-Round Deterministic Simulated Annealing.
     // -------------------------------------------------------------------------
     int rounds = 10;                 // total rounds
-    int iterations_per_round = 300;  // iterations per round per thread
+    int iterations_per_round = 200;  // iterations per round per thread
     double initial_temp = 1.0;
     double cooling_rate = 0.995;
     int thread_count = std::thread::hardware_concurrency();
