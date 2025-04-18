@@ -28,5 +28,5 @@
 #define T_ANIMSTOP      TTT(5000/2) 
 #define T_PUMP          TTT(5200/2) 
 #define T_NOISE2        TTT(5800/2) 
-#define T_END           TTT(6100/2)
+#define T_END           TTT(6200/2)
 #endif
