@@ -173,6 +173,7 @@ $(ROM_NAME): build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 	$(N64_READELF) --wide --sections build/small.compressed.elf | grep .text
 	$(N64_SIZE) -G build/small.compressed.elf
 	$(N64_OBJCOPY) -O binary build/small.compressed.elf $@
+	echo "$@ built successfully"
 
 run: $(ROM_NAME)
 	sc64deployer upload --direct $(ROM_NAME) && sc64deployer debug --isv 0x3FF0000
