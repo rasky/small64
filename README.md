@@ -94,8 +94,6 @@ sequence. Current calibration is not performed: we only use a fixed value
 that appears to work perfectly fine on most console at least when they are
 semi-warm. In the end, our RAM init code is just 0x2ec bytes, before compression.
 
-This was quite an achievement and opened up the door to
-
 Compression
 ===========
 For ROM compression, we needed something that could run on the MIPS CPU,
