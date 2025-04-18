@@ -200,18 +200,18 @@ void dp_begin_frame(void)
     udl[1] = (uint32_t)vi_buffer_draw;
     // blank the second fillrect; this is just to save precious fill time
     // can be disabled for codesize
-    if (framecount > T_FRACTAL) udl[10*2] = 0;
+    //if (framecount > T_FRACTAL) udl[10*2] = 0;
     dp_send(dlist, dlist + sizeof(dlist)/sizeof(uint64_t));
 }
 
 
-void bb_render(int16_t *buffer)
+void music_poll(void)
 {
-
-    //uint32_t t0 = C0_COUNT();
-    music_render(buffer);
-    //uint32_t t1 = C0_COUNT() - t0;
-    //debugf("BB: %ldus (expected: %dus)\n", TICKS_TO_US(t1), AI_BUFFER_SIZE/4 * 1000000 / SONG_FREQUENCY);
+    int16_t *ai_buffer = ai_poll();
+    if (ai_buffer) {
+        music_render(ai_buffer);
+        ai_poll_end();
+    }
 }
 
 //#include "noise.c"
@@ -233,18 +233,27 @@ void demo(void)
     gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
-    framecount=T_ANIMATE;
-    framecount = 0;
-    currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 60;
+    framecount = T_MESH2;
+    currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 25;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
+        if (framecount > T_END) {
+            *VI_H_VIDEO = 0x0;
+            while(1){}
+        }
+
         intro_phidx = draw_intro_setup();
+        debugf("framecount: %d\n", framecount*60/50*2);
 
         dp_begin_frame();
 
         if (intro_phidx >= 0) {
             draw_intro(intro_phidx);
+        }
+        if (framecount > T_NOISE2) {
+            music_poll();
+            continue;
         }
 
         if (framecount > T_FRACTAL) {
@@ -256,15 +265,11 @@ void demo(void)
             mesh_draw_async(framecount > T_MESH2 ? 2 : 1);
         }
 
-        int16_t *ai_buffer = ai_poll();
-         if (ai_buffer) {
-             bb_render(ai_buffer);
-             ai_poll_end();
-         }
+        music_poll();
 
-         if (framecount > T_MESH) {
-            mesh_draw_wait();
-         }
+        if (framecount > T_MESH) {
+           mesh_draw_wait();
+        }
 
         // draw_scroller(vi_buffer_draw);
         if (framecount > T_CREDITS) {

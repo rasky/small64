@@ -136,7 +136,7 @@ static void setup_3d(void)
 
 static uint16_t MESH_SCALES[2] = {
   (uint16_t)(0.6f * 0x7FFF),
-  (uint16_t)(0.3f * 0x7FFF),
+  (uint16_t)(0.2f * 0x7FFF),
 };
 
 static float mesh_sf = 1.0f;
@@ -148,38 +148,41 @@ static void mesh_setup(void)
     xangle += 0.01f*2;
     yangle += 0.015f*2;
 
-    if (Synths[0].envLevel)
-        mesh_sf *= 0.99f;
-    else {
-        mesh_sf *= 1.1f;
-        if (mesh_sf > 1.0f)
-            mesh_sf = 1.0f;
+    if (framecount > T_PUMP) {
+        if (Synths[0].envLevel)
+            mesh_sf *= 0.96f;
+        else {
+            mesh_sf *= 1.2f;
+            if (mesh_sf > 1.0f)
+                mesh_sf = 1.0f;
+        }
     }
+
+    *DP_STATUS = DP_WSTATUS_SET_XBUS;
+    *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
+    *DP_END = 0x30;
 }
 
 __attribute__((noinline))
 static void mesh_draw_single(int i)
 {
     float scale = MESH_SCALES[i];
-    if (i == 0) {
-        scale *= mesh_sf;
-    }
+    scale *= mesh_sf;
     
-    ucode_sync();
+    if (i > 0) {
+        ucode_sync();
+        dp_wait();
+    }
     ucode_set_srt(scale, (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
 
-    *DP_STATUS = DP_WSTATUS_SET_XBUS;
-    *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
-    *DP_END = 0x30;
-
     if (framecount > T_ANIMATE && framecount < T_ANIMSTOP) {
-        static float dispTimer = -3;
+        static float dispTimer = -2;
         float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
         ucode_set_displace(dispFactor * 0x7FFF);
         if(dispTimer > MM_PI*2)dispTimer = -2;
-        dispTimer += 0.01f;
+        dispTimer += 0.01f*2;
     } else {
-      ucode_set_displace(0);
+        ucode_set_displace(0);
     }
 
     ucode_run();

@@ -12,6 +12,9 @@
 #define T_FRACTAL       TTT(850/2)
 #define T_MESH          TTT(1700/2+50)
 #define T_CREDITS       TTT(2200/2)
-#define T_ANIMATE       TTT(3100/2)
-#define T_MESH2         TTT(3500/2)
-#define T_ANIMSTOP      TTT(4030/2)  // ~930 after T_ANIMATE
+#define T_ANIMATE       TTT(3500/2)
+#define T_MESH2         TTT(4900/2)
+#define T_ANIMSTOP      TTT(5250/2) 
+#define T_PUMP          TTT(5330/2) 
+#define T_NOISE2        TTT(5650/2) 
+#define T_END           TTT(5900/2)
