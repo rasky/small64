@@ -52,7 +52,7 @@ register uint32_t ipl2_version   asm ("s7");
 // Configure the RDRAM refresh rate. This is described as required in the
 // n64brew wiki, but it seems like the defaults are reasonable and don't cause
 // much of a performance hit.
-#define REFRESH_RATE              0
+#define REFRESH_RATE              1
 
 typedef struct {
     volatile uint32_t *reg;
@@ -75,6 +75,8 @@ const reg_write_t rdram_init_regs[] = {
             RI_SELECT_RX_TX, },
     { RI_REFRESH,
             0 },
+    { RI_MODE,
+            RI_MODE_RESET },
     { RI_MODE,
             RI_MODE_STANDARD },
     { MI_MODE,

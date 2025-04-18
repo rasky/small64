@@ -243,6 +243,7 @@ typedef uint64_t u_uint64_t __attribute__((aligned(1)));
 
 #define RI_CONFIG_AUTO_CALIBRATION          0x40
 #define RI_SELECT_RX_TX                     0x14
+#define RI_MODE_RESET                       0x0
 #define RI_MODE_STANDARD                    (0x8|0x4|0x2)
 
 #define RI_REFRESH_CLEANDELAY(x)            ((x) & 0xFF)
