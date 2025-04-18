@@ -13,3 +13,5 @@
 #define T_MESH          TTT(1700/2+50)
 #define T_CREDITS       TTT(2200/2)
 #define T_ANIMATE       TTT(3100/2)
+#define T_MESH2         TTT(3500/2)
+#define T_ANIMSTOP      TTT(4030/2)  // ~930 after T_ANIMATE

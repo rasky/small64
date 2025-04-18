@@ -162,15 +162,16 @@ function Main()
     col:sint *= 2;
   
     col.w = fresnel.Z; // merge fresnel and specular into on color
- 
+
     pos:sfract += displ:sfract; // also does clamping
 
     // basic uvgen, take the XY of the normals to generate spherical UVs  
-    vec16 uv = pos >> 6;
+    vec16 uv = pos >> 5;
     
+    pos:sfract = uv:sfract * mat2:sfract.w;
 
     // offset in screen-space, this also means the model will not get scaled or moved in 3D, only 2D
-    pos = uv + screenOffset;
+    pos = pos + screenOffset;
     
     // write-back for RDPQ_Triangle
     @Barrier("attr") store(pos.xyzw, vtx1, 0); 

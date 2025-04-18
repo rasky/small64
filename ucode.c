@@ -33,7 +33,7 @@ static uint32_t to_short_upper(float f) {
   return (int32_t)(f * 0x7FFF) << 16;
 }
 
-static void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t posY)
+static void ucode_set_srt(uint16_t scale, float rot[3], uint32_t posX, uint32_t posY)
 {
   float cosR0 = mm_cosf(rot[0]);
   float cosR2 = mm_cosf(rot[2]);
@@ -54,7 +54,7 @@ static void ucode_set_srt(float scale, float rot[3], uint32_t posX, uint32_t pos
   DMEM_BASE[2] = to_short_upper(sinR2 * cosR1) | to_short_upper(sinR2 * sinR1 * sinR0 + cosR2 * cosR0) >> 16;
   DMEM_BASE[3] = to_short_upper(sinR2 * sinR1 * cosR0 - cosR2 * sinR0) | posY;
   DMEM_BASE[4] = to_short_upper(-sinR1) | to_short_upper(cosR1 * sinR0) >> 16;
-  DMEM_BASE[5] = to_short_upper(cosR1 * cosR0);
+  DMEM_BASE[5] = to_short_upper(cosR1 * cosR0) | scale;
 }
 
 /**

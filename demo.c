@@ -233,7 +233,9 @@ void demo(void)
     gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
-    framecount=0;
+    framecount=T_ANIMATE;
+    framecount = 0;
+    currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 60;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
@@ -250,7 +252,8 @@ void demo(void)
         }
 
         if (framecount > T_MESH) {
-            mesh_draw_async();
+            mesh_setup();
+            mesh_draw_async(framecount > T_MESH2 ? 2 : 1);
         }
 
         int16_t *ai_buffer = ai_poll();
