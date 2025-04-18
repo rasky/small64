@@ -76,6 +76,13 @@
     addiu outptr, outptr, 1
 .endm
 
+    # gentorus - generate torus vertex/polygon data
+    # The C version is commented in mesh.c.
+    # The assembly version has been written to be able to write compressible
+    # code. Each vertex and polygon uses highly repeated code, always using the
+    # same opcodes with the same registers, so that it compresses much more.
+    # GCC instead generates more efficient code using more registers, but that
+    # compresses much worse.
 gentorus:
     addiu ret_addr, $ra, 0
     addiu outptr, $a0, 0
