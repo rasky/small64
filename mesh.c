@@ -159,41 +159,32 @@ static void mesh_setup(void)
     }
 
     *DP_STATUS = DP_WSTATUS_SET_XBUS;
-    *DP_START = 0x30; // @TODO: why do i have to set both here? (hangs otherwise)
-    *DP_END = 0x30;
 }
-
-__attribute__((noinline))
-static void mesh_draw_single(int i)
-{
-    float scale = MESH_SCALES[i];
-    scale *= mesh_sf;
-    
-    if (i > 0) {
-        ucode_sync();
-        dp_wait();
-    }
-    ucode_set_srt(scale, (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
-
-    if (framecount > T_ANIMATE && framecount < T_ANIMSTOP) {
-        static float dispTimer = -2;
-        float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
-        ucode_set_displace(dispFactor * 0x7FFF);
-        if(dispTimer > MM_PI*2)dispTimer = -2;
-        dispTimer += 0.01f*2;
-    } else {
-        ucode_set_displace(0);
-    }
-
-    ucode_run();
-}
-
 
 static void mesh_draw_async(int nmeshes)
 {
     for(int i=0; i<nmeshes; ++i)
     {
-        mesh_draw_single(i);
+        float scale = MESH_SCALES[i];
+        scale *= mesh_sf;
+        
+        if (i > 0) {
+            ucode_sync();
+            dp_wait();
+        }
+        ucode_set_srt(scale, (float[]){xangle+i, yangle+i, 0.0f}, 160<<2, 120<<2);
+    
+        if (framecount > T_ANIMATE && framecount < T_ANIMSTOP) {
+            static float dispTimer = -2;
+            float dispFactor = mm_sinf(__builtin_fmaxf(dispTimer, 0));
+            ucode_set_displace(dispFactor * 0x7FFF);
+            if(dispTimer > MM_PI*2)dispTimer = -2;
+            dispTimer += 0.01f*2;
+        } else {
+            ucode_set_displace(0);
+        }
+    
+        ucode_run();
     }
 }
 

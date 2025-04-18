@@ -233,8 +233,8 @@ void demo(void)
     gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
-    framecount = T_MESH2;
-    currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 25;
+    // framecount = T_MESH2;
+    // currentRow = framecount * AI_FREQUENCY / (AI_BUFFER_SIZE/4) / 25;
     int intro_phidx = 0;
     while(1) {
         vi_wait_vblank();
@@ -244,7 +244,6 @@ void demo(void)
         }
 
         intro_phidx = draw_intro_setup();
-        debugf("framecount: %d\n", framecount*60/50*2);
 
         dp_begin_frame();
 
