@@ -14,7 +14,10 @@ Greetings: korgeaux, Buu342, Tharo, tykkiman, the_kovic, Dresdenboy, exoticorn,
 Pellicus, Friol, Mod3m, Woody
 
 To run on Nintendo 64 hardware, use a flashcart like Summercart64, EverDrive64
-or 64Drive. Use the version matching your TV type (PAL, NTSC or MPAL).
+or 64Drive. Use the version matching your TV type (PAL, NTSC or MPAL). If it
+doesn't boot right away, try running another ROM for a few seconds before
+(because of a bug, the console needs to be slightly warmed up for the intro
+to boot).
 
 To run on an emulator, use Ares: https://ares-emu.net. It's the only emulator
 accurate enough to run it. Use the NTSC version.
