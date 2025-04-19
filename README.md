@@ -184,39 +184,37 @@ Music
 =====
 
 The initial experiments started with [dollchan bytebeat
-tool](https://dollchan.net/bytebeat/), but it is essentially javascript, which
-uses double floats internally. The hunch was that floats would be too slow on
-N64 for rendering multichannel music in real time and it would be better to use
-integers (but 64 bit ones!). But doubles only have 52 bits in the fraction, so
-converting the dollchane bytebeat to 64-bit integers on the N64 would probably
-likely be a headache. It would be better to compose the music using 64-bit
+tool](https://dollchan.net/bytebeat/), but it is essentially JavaScript,
+which uses double floats internally. The hunch was that floats would be too slow
+on N64 for rendering multichannel music in real time and it would be better to
+use integers (but 64-bit ones!). However, doubles only have 52 bits in the
+fraction, so converting the dollchan bytebeat to 64-bit integers on the N64
+would likely be a headache. It would be better to compose the music using 64-bit
 integers in the first place. Thus, new tools were needed.
 
 The new tool was a simple VST2 instrument, written in Go, using the [vst2
-library](https://github.com/pipelined/vst2). All math was based on 64-bit
-integers. In the first iteration of it, it had: 
+library](https://github.com/pipelined/vst2). In the first iteration, it had:
+  * All math was based on 64-bit integers. 
   * Two oscillators (sinusoidal, saw, triangle, square, and noise)
   * ADSR envelope, with linear slopes
   * Delay effect
-  * One second-order filter per instrument (low/band/high/notch), with
-    adjustable frequency and resonance
+  * One second-order filter per instrument (low/band/high/notch), with adjustable frequency and resonance
   * Pitch drop, with exponentially dropping frequency
-  * One global reverb (shared by all instruments), ported from
-    [4klang/Sointu](https://github.com/vsariola/sointu)
-  * ...
+  *  One global reverb (shared by all instruments), ported from [4klang/Sointu](https://github.com/vsariola/sointu)
 
 Anyway, this was like WAAAY over the *speed* budget when tested on the emulator:
 N64 wasn't able to even render a single instrument with the reverb in real time!
-So, things had to be simplified a LOT. After removing the reverb, delay, and
-just keeping one oscillator, the machine was still only fast enough to render 4
-channels. The song had 8 instruments, so we had to make every two instruments
-share the same channel & make sure that in the composition, these channels had
-no overlapping notes.
+So, things had to be simplified a lot. After removing the reverb, delay, and
+just keeping one oscillator per channel, the machine was still only fast enough
+to render 4 channels. The song had 8 instruments, so we had to make every two
+instruments share the same channel and ensure that in the composition, these
+channels had no overlapping notes.
 
-Next problem was *size* budget. The first versions of the song were consuming
-like 1.5k and given the inefficiencies of compressing the MIPS instruction
-encodings, the visuals were going to need all the bytes they could get. Thus,
-several further features had to be removed from the synth.
+Next problem was the *size* budget. The first versions of the song were
+consuming around 1.5k (after compressed) and given the inefficiencies of
+compressing the MIPS instruction encodings, the visuals were going to need all
+the bytes they could get. Thus, several further features had to be removed from
+the synth.
 
 In the end, the synth had:
   * 4 channels / 8 instruments, with every two instruments sharing a channel
@@ -224,16 +222,16 @@ In the end, the synth had:
   * 1 oscillator (sinusoidal, triangle, noise)
   * Filter per instrument (high or band)
 
-The song was composed in [MuLab](https://www.mutools.com/), with the note data
-exported into .mid file, and a quick converter to convert this to linear arrays.
-There was no need to make patterns / order list kind of data storage, because
-the LZ type decompression of UPKR already handled the repetitive patterns very
-well. There was 4 tracks, with note numbers 1-127 representing the triggering of
-instrument #1 of that channel (track), while note numbers 129-255 representing triggering
-of the instrument #2 of that channel.
+The song was composed in [MuLab](https://www.mutools.com/) with the note data
+exported into a .mid file, and a quick converter to convert this to linear
+arrays. There was no need to make patterns/order list kind of data storage,
+because the LZ type decompression of UPKR already handled the repetitive
+patterns very well. There were 4 tracks, with note numbers 1-127 representing
+the triggering of instrument #1 of that channel (track), while note numbers
+129-255 represented triggering of instrument #2 of that channel.
 
 Finally, to get the instrument settings from the MuLab project file, the vst2
-was programmed to store its settings as JSON in the DAW project (using the
-GetChunk / SetChunk mechanism). We were happy to see that MuLab did not apply
-any compression to its project files, so it was relatively easy to write a
+instrument was programmed to store its settings as JSON in the DAW project
+(using the GetChunk/SetChunk mechanism). We were happy to see that MuLab did not
+apply any compression to its project files, so it was relatively easy to write a
 script to scrape the JSONs from the MuLab project file.
