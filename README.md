@@ -286,11 +286,11 @@ While it may not change the size, it created less "uniform" code.<br>
 As a tradeoff this made the code run way slower than it could however.<br>
 
 The process of how the RDP will fetch data was also changed.<br>
-Normally you can point it to a buffer in RDRAM from which to fetch commands via a register.<br>
-While this gives you a lot of memory to work with, it requires a DMA form the RSP to get it there.<br>
+Normally you can point it to a buffer in RDRAM via a register from which to fetch commands.<br>
+While this gives you a lot of memory to work with, it requires a DMA from the RSP to get it there.<br>
 Instead we point it directly to DMEM to avoid that, with the tradeoff of dealing with the 4kb DMEM size and reduced performance once more due to more syncing.<br>
 
-However only reducing code doesn't make for a great demo, so a few effect where squeezed in.<br>
+However only reducing code doesn't make for a great demo, so a few effects where squeezed in.<br>
 All of which work by using the existing data with little extra code:
 
 #### UV-Gen
