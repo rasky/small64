@@ -96,6 +96,7 @@ build/%.o: %.S
 build/demo.o: build/rsp_u3d.inc
 build/rsp_u3d.inc: rsp_u3d.S
 	@echo "    [RSP] $<"
+	@mkdir -p build
 	$(N64_CC) $(N64_RSPASFLAGS) -L$(N64_LIBDIR) -nostartfiles -Wl,-Trsp.ld -Wl,--gc-sections  -Wl,-Map=$(BUILD_DIR)/$(notdir $(basename $@)).map -o $@.elf $<
 	$(N64_OBJCOPY) -O binary -j .text $@.elf $@.text.bin
 	$(N64_OBJCOPY) -O binary -j .data $@.elf $@.data.bin
