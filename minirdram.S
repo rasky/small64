@@ -150,9 +150,9 @@ stage1:
     # Initialize gp for stage 2 (for sdata/sbss)
     la $gp, _gp
 
-    # Return the initial value of the stack pointer (at the end of RAM)
+    # Configure the initial stack pointer (at the end of RAM)
     jr $ra
-     li $v0, 0x80400000
+     li $sp, 0x80400000
 
 
 #define INITID         0x1F

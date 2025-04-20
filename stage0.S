@@ -52,9 +52,9 @@ post_stage1_decomp:
     li $a0, 0xA4000000      # dst
     addiu $a2, $a0, 0x1000
     addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
-    addiu $sp, $a0, 0x40               # Stack at 0xA400'0040, hoping it's enough
+    lui decomp_return, %hi(STAGE2_ENTRYPOINT)
     #if RUNNABLE_TITLE
-    li outbuf_end, 0xB0000000          # (this is for stage2_decomp, see below)
+    li outbuf_end, 0xB0000000          # Stage 2 decompressed end pointer (= unbounded)
     #else
     b .Lcopy_loop
     #endif
@@ -89,8 +89,8 @@ _start:
     # but we use 0x80002000 as address so that emulators that don't emulate
     # CPU cache stil have RDRAM here.
      li outbuf, 0x80900000             # Destination pointer: CPU cache
-    addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
     addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
+    addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
     addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
     b decompress
      li decomp_return, 0xB0000000            # Post-decompression go to ROM start
@@ -102,9 +102,8 @@ stage2_decomp:
     # Both inbuf and outbuf_end have been already set in the header code (post_stage1_decomp).
     # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
     # inbuf = DMEM address of compressed stage12.
-    li outbuf, 0xA0000000         # Decompression output pointer (uncached address)
-    move $sp, $v0                 # $sp start at 0x8000'0000+memsize
-    li decomp_return, STAGE2_ENTRYPOINT # FIXME: is there a way to avoid the double instruction here
+    li outbuf, 0xA0000000              # Stage 2 decompression output pointer (uncached address)
+    addiu decomp_return, decomp_return, %lo(STAGE2_ENTRYPOINT)
 #if !RUNNABLE_TITLE
     li outbuf_end, 0xB0000000        # Set outbuf_end here if it couldn't fit the header
 #endif
