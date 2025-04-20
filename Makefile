@@ -9,8 +9,6 @@ else
 endif
 
 SOURCE_DIR=.
-# 0 = Shrinkler, 1 = UPKR
-COMPRESSION_ALGO=1
 COMPRESSION_LEVEL=9
 
 # 0 = PAL, 1 = NTSC, 2 = MPAL
@@ -144,13 +142,9 @@ build/stage12.bin: build/small.elf build/upkr$(EXE)
 	$(N64_OBJCOPY) -O binary -j .text.stage2 $< build/stage2.bin.raw
 	$(N64_OBJCOPY) -O binary -j .text.stage2u $< build/stage2u.bin.raw
 	cat build/stage1.bin.raw build/stage2.bin.raw build/stage2u.bin.raw >$@.raw
-	if [ ${COMPRESSION_ALGO} -eq 0 ]; then \
-	 	$(SHRINKER) -d -${COMPRESSION_LEVEL} -p $@.raw $@ >/dev/null; \
-	else \
-		build/upkr$(EXE) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
-		build/upkr$(EXE) --heatmap --parity 4 $@; \
-		tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
-	fi
+	build/upkr$(EXE) -${COMPRESSION_LEVEL} --parity 4 $@.raw $@; \
+	build/upkr$(EXE) --heatmap --parity 4 $@; \
+	tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
 
 stats: build/small.elf
 	tools/heatmap.py --heatmap build/stage12.heatmap build/small.elf .text.stage1 .text.stage2
