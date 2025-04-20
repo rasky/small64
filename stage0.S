@@ -23,7 +23,7 @@
 #define outbuf          $s2
 #define outbuf_end      $s0
 #define decomp_return   $a3
-
+#define dmem_base       $t3         // Base address for lax macro (set by IPL2)
 
     .set at
     .set noreorder
@@ -89,7 +89,7 @@ _start:
     # but we use 0x80002000 as address so that emulators that don't emulate
     # CPU cache stil have RDRAM here.
      li outbuf, 0x80900000             # Destination pointer: CPU cache
-    addiu inbuf, $t3, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
+    addiu inbuf, dmem_base, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
     addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
     addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
     b decompress
@@ -124,7 +124,6 @@ stage2_decomp:
 #define UPKR_PARITY_LOG2       (UPKR_PARITY/2)     // works for 1,2,4
 #define UPKR_NUM_CONTEXTS      (256*UPKR_PARITY + 64*2*UPKR_PARITY)
 
-#define lax_base               $t3
 #define offset                 $t4
 #define ra2                    $t5
 #define ctx                    $t6
@@ -154,7 +153,7 @@ stage2_decomp:
 # to calculate the offset, so that the load can be performed as a relative
 # offset in one instruction, rather than a 32-bit load in two.
 .macro lax reg, address
-    addiu \reg, lax_base, \address - _start + 0x40
+    addiu \reg, dmem_base, \address - _start
 .endm
 
 # Main UPKR decompression loop
@@ -164,10 +163,9 @@ decompress:
     li state, UPKR_NUM_CONTEXTS             # number of contexts to init
 .Lctx_init_loop:
     sub $t1, $sp, state                     # calculate the address of the context
-    sb prev_was_literal, 0($t1)             # store 0x80
     addiu state, -1                 
     bnez state, .Lctx_init_loop             # loop until all contexts are initialized
-     li lax_base, 0xA4000000                # init lax_base to this segment (so lax works)
+     sb prev_was_literal, 0($t1)             # store 0x80
     # state now is 0
     # prev_was_literal now is non-zero
 
