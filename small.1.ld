@@ -34,8 +34,7 @@ SECTIONS {
     .text.stage1 : {
         __stage1 = .;
         KEEP(*(.stage1))
-        build/stage1.o
-        /*build/minirdram.o*/
+        build/minirdram.o
         . = ALIGN(8);
     } > imem
 

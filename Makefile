@@ -68,7 +68,7 @@ N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 
 # Objects used for the first compilation step (uncompressed)
-STAGE1_OBJS = build/stage1.o build/minidragon.o #build/minirdram.o
+STAGE1_OBJS = build/minirdram.o
 STAGE2_OBJS = build/demo.o build/torus.o # build/minilib.o
 
 # Sources used to build the final compressed binary

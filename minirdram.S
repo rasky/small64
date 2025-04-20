@@ -3,27 +3,21 @@
 # Written by Giovanni Bajo (giovannibajo@gmail.com)
 ###########################################################################
 #
-# This is loosely based on rdram.c as found in libdragon's IPL3 but it is
-# heavily stripped down to the bare minimum, by cutting lots of shortcuts.
-# These are the main changes in the initialization algorithm:
+# Full RDRAM initialization code can be seen in libdragon's IPL3:
+# https://github.com/DragonMinded/libdragon/tree/trunk/boot/rdram.c
 #
-#  * The current calibration does raise the output current of chips until
-#    the read data is stable, and then double that value to set the current.
-#    The real IPL3 in libdragon does a weighted sum of the number of 1 bits
-#    in the read data, and then multiply that by 2.2. 
-#  * Automatic current tuning is not enabled. RAMBUS suggests to enable that
-#    do deal with temperature changes, but 4K intros will run for a few minutes
-#    at most, so we can hopefully skip that (and save a lot of code).
-#  * The RAS interval is set to a fixed value that is expected to work on all
-#    RDRAM chips shipped with the N64. Otherwise, querying the chip model would
-#    be necessary.
-#  * RDRAM refresh rate is not configured. The default appears to work correctly
-#    and doesn't seem to impact memory bandwidth that much, as the n64brew wiki
-#    implies
-#  * The code is configured at compile-time for either 4, 6 or 8 MiB of RDRAM,
-#    but does not handle runtime errors. So if configure for 8 Mib, the expansion
-#    pak must be present, otherwise the code will hang.
+# This version here does not follow the current calibration process described
+# by Rambus datasheets, but configures chips with a fixed output current
+# (setting the RDRAM mode CC bits to 0x30). This seems to work reasonably
+# fine for slightly warmed up consoles, while it sometimes fails for cold units.
+# 
+# Also, we don't configure the automatic current finetuning; that is meant
+# to make the current output by the chips follow temperature changes, but for
+# a 2 minutes intro, this is not required.
 #
+# Doing these simplifications means that initialization is now just a 
+# sequence of register writes with fixed values. We just prepare a table with
+# such values and execute them.
 ###########################################################################
 
 
@@ -33,48 +27,39 @@
 # code will hang if expansion pak is not present.
 #define NUM_RDRAM_BANKS           2
 
-# RDRAM datasheets advise to perform output current calibration, and all
-# the IPL3 code does that, including libdragon's. However, it seems that
-# a fixed value which is high enough but not too high, works perfectly
-# on all tested units. This allows to save quite a bit of code. We choose
-# 0x30 (on a scale from 0 to 0x3F).
-#define CURRENT_CALIBRATION       0
-
-# Configure the RDRAM refresh rate. This is described as required in the
-# n64brew wiki, but it seems like the defaults are reasonable and don't cause
-# much of a performance hit.
-#define REFRESH_RATE              0
-
 
     .set noreorder
-    .set noat
+    .set at
 
-    .globl mini_rdram_init
-    .globl mini_rdram_calibrate_current
     .section .text.stage1, "ax"
+    .globl stage1
 
-#define BIT(x, n)           (((x) >> (n)) & 1)
-#define BITS(x, b, e)       (((x) >> (b)) & ((1 << ((e)-(b)+1))-1))
-#define BITSWAP5(x)         ((BIT(x,0)<<4) | (BIT(x,1)<<3) | (BIT(x,2)<<2) | (BIT(x,3)<<1) | (BIT(x,4)<<0))
+#define C0_TAGLO                $28
+#define C0_TAGHI                $29
+#define INDEX_STORE_TAG_D       0x9
+#define INDEX_STORE_TAG_I       0x8
 
-#define chip_id             $a0
-#define cc                  $t4
-#define RDRAM_BROADCAST     $t6
-#define RDRAM_CHIP          $t5
-#define MI_BASE             $t7
-#define RI_BASE             $t8
-#define vaddr               $t7
+#define BIT(x, n)               (((x) >> (n)) & 1)
+#define BITS(x, b, e)           (((x) >> (b)) & ((1 << ((e)-(b)+1))-1))
+#define BITSWAP5(x)             ((BIT(x,0)<<4) | (BIT(x,1)<<3) | (BIT(x,2)<<2) | (BIT(x,3)<<1) | (BIT(x,4)<<0))
+#define ROT16(x)                ((((x) & 0xFFFF0000) >> 16) | (((x) & 0xFFFF) << 16))
 
-#define RI_MODE             0x0(RI_BASE)
-#define RI_CONFIG           0x4(RI_BASE)
-#define RI_CURRENT_LOAD     0x8(RI_BASE)
-#define RI_SELECT           0xC(RI_BASE)
-#define RI_REFRESH          0x10(RI_BASE)
+#define MI_BASE                 0xA4300000
+#define RI_BASE                 0xA4700000
+#define RDRAM_REGS(chip)        (0xA3F00000 + ((chip) << 10))
+#define RDRAM_REGS_BROADCAST    0xA3F80000
 
-#define MI_MODE             0x0(MI_BASE)
+#define RI_MODE                 (RI_BASE + 0x00)
+#define RI_CONFIG               (RI_BASE + 0x04)
+#define RI_CURRENT_LOAD         (RI_BASE + 0x08)
+#define RI_SELECT               (RI_BASE + 0x0C)
+#define RI_REFRESH              (RI_BASE + 0x10)
+
+#define MI_MODE                 (MI_BASE + 0x00)
 
 #define RI_CONFIG_AUTO_CALIBRATION   0x40
 #define RI_SELECT_RX_TX              0x14
+#define RI_MODE_RESET                0x0
 #define RI_MODE_STANDARD             (0x8|0x4|0x2)
 
 #define RI_REFRESH_CLEANDELAY(x)            ((x) & 0xFF)
@@ -83,7 +68,11 @@
 #define RI_REFRESH_OPTIMIZE                 (1<<18)
 #define RI_REFRESH_MULTIBANK(x)             (((x) & 0xF) << 19)
 
-#define MI_MODE_REPEAT(n)            (0x100 | ((n)-1))
+#define MI_WMODE_CLEAR_REPEAT_MOD           0x80
+#define MI_WMODE_SET_REPEAT_MODE            0x100
+#define MI_WMODE_REPEAT_LENGTH(n)           ((n)-1)
+#define MI_WMODE_SET_UPPER_MODE             0x2000
+#define MI_WMODE_CLEAR_UPPER_MODE           0x1000
 
 #define RDRAM_REG_DEVICE_ID          (1 * 4)
 #define RDRAM_REG_DELAY              (2 * 4)
@@ -91,197 +80,138 @@
 #define RDRAM_REG_REF_ROW            (5 * 4)
 #define RDRAM_REG_RAS_INTERVAL       (6 * 4)
 
-#define RDRAM_MODE_DE       (1<<25)
-#define RDRAM_MODE_AS       (1<<26)
-#define RDRAM_MODE_CC(cc)   ((BIT((cc)^0x3F, 0) << 6)  | \
-                             (BIT((cc)^0x3F, 1) << 14) | \
-                             (BIT((cc)^0x3F, 2) << 22) | \
-                             (BIT((cc)^0x3F, 3) << 7)  | \
-                             (BIT((cc)^0x3F, 4) << 15) | \
-                             (BIT((cc)^0x3F, 5) << 23))
+#define RDRAM_REG_MODE_DE       (1<<25)
+#define RDRAM_REG_MODE_AS       (1<<26)
+#define RDRAM_REG_MODE_CC(cc)   ((BIT((cc)^0x3F, 0) << 6)  | \
+                                (BIT((cc)^0x3F, 1) << 14) | \
+                                (BIT((cc)^0x3F, 2) << 22) | \
+                                (BIT((cc)^0x3F, 3) << 7)  | \
+                                (BIT((cc)^0x3F, 4) << 15) | \
+                                (BIT((cc)^0x3F, 5) << 23))
 
-#define RDRAM_DELAY(AckWinDelay, ReadDelay, AckDelay, WriteDelay) \
+#define RDRAM_REG_DELAY_MAKE(AckWinDelay, ReadDelay, AckDelay, WriteDelay) \
    ((((AckWinDelay) & 7) << 3 << 24) | \
     (((ReadDelay)   & 7) << 3 << 16) | \
     (((AckDelay)    & 3) << 3 <<  8) | \
     (((WriteDelay)  & 7) << 3 <<  0))
 
+#define RDRAM_REG_DEVICE_ID_MAKE(chip_id) \
+    (BITS(chip_id, 0, 5) << 26 | \
+     BITS(chip_id, 6, 6) << 23 | \
+     BITS(chip_id, 7, 14) << 8 | \
+     BITS(chip_id, 15, 15) << 7)
+
 #define RDRAM_REG_RASINTERVAL_MAKE(row_precharge, row_sense, row_imp_restore, row_exp_restore) \
     ((BITSWAP5(row_precharge) << 24) | (BITSWAP5(row_sense) << 16) | (BITSWAP5(row_imp_restore) << 8) | (BITSWAP5(row_exp_restore) << 0))
 
 
-#define ROT16(x) ((((x) & 0xFFFF0000) >> 16) | (((x) & 0xFFFF) << 16))
+#define INIT_VALUE_OFF   (rdram_init_values - rdram_init_regs)
 
-wait:
-    li $t0, 0x200
-1:  bnez $t0, 1b
-     addiu $t0, $t0, -1
-    jr $ra
 
-mini_rdram_init:
-     li RI_BASE, 0xA4700000
-    li MI_BASE, 0xA4300000
-    li RDRAM_BROADCAST, 0xA3F80000
-    sw $ra, -4($sp)
+stage1:
+    la $v0, rdram_init_regs
+.Lrdram_init_loop:
+    lw $v1, 0($v0)
+    beqz $v1, .Lrdram_init_end
+    lw $a0, %lo(INIT_VALUE_OFF)($v0)
+    addiu $v0, 4
+    sw $a0, 0($v1)
+    # Some delay is required after some of the writes of the initialization
+    # routine. We always delay as it doesn't matter, and do that with
+    # a series of nops that compress very well.
+    .rept 128
+        nop
+    .endr
+    b .Lrdram_init_loop
+.Lrdram_init_end:
 
-    li $t0, RI_CONFIG_AUTO_CALIBRATION
-    jal wait
-     sw $t0, RI_CONFIG
-    sw $zero, RI_CURRENT_LOAD
-
-    li $t0, RI_SELECT_RX_TX
-    sw $t0, RI_SELECT
-
-    jal wait
-     sw $zero, RI_MODE
-
-    li $t0, RI_MODE_STANDARD
-    jal wait
-     sw $t0, RI_MODE
-
-    li $t0, MI_MODE_REPEAT(16)
-    sw $t0, MI_MODE
-
-    li $t0, ROT16(RDRAM_DELAY(5, 7, 3, 1))
-    sw $t0, RDRAM_REG_DELAY(RDRAM_BROADCAST)
+    # Purge the CPU cache. The cache at boot can contain random values in both
+    # the contents and the metadata. We have already used dcache in stage 0 (though
+    # not trusting its initial contents), but now we want to make sure to boot
+    # C code in stage 2 with a fully inited state, including icache (icache
+    # boot garbage can cause crashes).
+     mtc0 $zero, C0_TAGLO
+    mtc0 $zero, C0_TAGHI
+    li $v0, 0x80000000
+    addiu $v1, $v0, 16384
+.Lcache_purge_loop:
+    cache INDEX_STORE_TAG_D, 0($v0)
+    cache INDEX_STORE_TAG_I, 0($v0)
+    addiu $v0, 16
+    blt $v0, $v1, .Lcache_purge_loop
     
-    li $t0, 0xFC800000      # Device ID 0x7F
-    sw $t0, RDRAM_REG_DEVICE_ID(RDRAM_BROADCAST)
-    sw $zero, RDRAM_REG_REF_ROW(RDRAM_BROADCAST)
+    # PIF boot termination: write 0x8 at 0xBFC007FF
+    # This is required to ack the PIF that the boot sequence is terminated,
+    # otherwise it'll hang the CPU within ~5 seconds.
+     li $a0, 0xbfc00000
+    li $v0, 8
+    sw $v0, 0x7fc($a0)
+ 
+    # Initialize gp for stage 2 (for sdata/sbss)
+    la $gp, _gp
 
-    jal mini_rdram_calibrate_current
-     li $a0, 0
-#if NUM_RDRAM_BANKS > 1
-    jal mini_rdram_calibrate_current
-     li $a0, 2
-#endif
-#if NUM_RDRAM_BANKS > 2
-    jal mini_rdram_calibrate_current
-     li $a0, 4
-#endif
-#if NUM_RDRAM_BANKS > 3
-    jal mini_rdram_calibrate_current
-     li $a0, 6
-#endif
-
-#if REFRESH_RATE
-    # Configure refresh rate. This seems not to be required. Keep the code
-    # around in case we need to tweak it.
-    li $t0, RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE | RI_REFRESH_CLEANDELAY(52) \
-        | RI_REFRESH_DIRTYDELAY(54) \
-        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)
-    sw $t0, RI_REFRESH
-#endif
-
-    lw $ra, -4($sp)
+    # Return the initial value of the stack pointer (at the end of RAM)
     jr $ra
-     li $v0, NUM_RDRAM_BANKS * 2 * 1024 * 1024
+     li $v0, 0x80400000
 
-    .type mini_rdram_init, @function
-    .size mini_rdram_init, .-wait
 
-# Macro to configure the current for the chip.
-# We need this function twice: once as part of the loop
-# to search for the minimum corrent, and the second time
-# to set the current to the calculated value.
-# Since this whole module is compressed, it is more efficient
-# to simply duplicate the code, rather than abstracting
-# it into a function.
+#define INITID         0x1F
 
-.macro set_cc cc
-    la $v0, shifts
-    li $t3, RDRAM_MODE_DE | RDRAM_MODE_AS | 0x40000000
-    xori $t2, \cc, 0x3F
-    sll $t2, 32-6
-1:
-    bgez $t2, 2f
-     sll $t2, 1
-    lbu $t0, 0($v0)
-    li $t1, 1
-    sllv $t1, $t1, $t0
-    or $t3, $t1
-2:
-    bnez $t2, 1b
-     addiu $v0, 1
-    sw $t3, RDRAM_REG_MODE(RDRAM_CHIP)          # write mode reg with CC value
+.macro chip_init_regs   chip_id
+    .if (\chip_id < NUM_RDRAM_BANKS*2)
+        .long RDRAM_REGS(INITID)   + RDRAM_REG_DEVICE_ID
+        .long RDRAM_REGS(\chip_id) + RDRAM_REG_MODE
+        .long RDRAM_REGS(\chip_id) + RDRAM_REG_RAS_INTERVAL
+    .endif
 .endm
 
-mini_rdram_calibrate_current:
-    # Configure chip ID for the next RDRAM chip in the bus.
-    # We previously broadcasted ID 0x7F to all chips, so talk to
-    # that ID.
-    li RDRAM_CHIP, (0xA3F00000 + (0x7F << 10))
-    sll $t0, chip_id, 26
-    sw $t0, RDRAM_REG_DEVICE_ID(RDRAM_CHIP)
+.macro chip_init_values chip_id
+    .if (\chip_id < NUM_RDRAM_BANKS*2)
+        .long RDRAM_REG_DEVICE_ID_MAKE(\chip_id)
+        .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x30)
+        .long RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)
+    .endif
+.endm
 
-    li RDRAM_CHIP, 0xA3F00000
-    sll chip_id, 10
-    or RDRAM_CHIP, chip_id
+rdram_init_regs:
+    .long RI_CONFIG                                     // 0
+    .long RI_CURRENT_LOAD                               // 1
+    .long RI_SELECT                                     // 2
+    .long RI_REFRESH                                    // 3
+    .long RI_MODE                                       // 4
+    .long RI_MODE                                       // 5
+    .long MI_MODE                                       // 6
+    .long RDRAM_REGS_BROADCAST + RDRAM_REG_DELAY        // 7
+    .long RDRAM_REGS_BROADCAST + RDRAM_REG_DEVICE_ID    // 8
+    .long RDRAM_REGS_BROADCAST + RDRAM_REG_REF_ROW      // 9
+    chip_init_regs 0
+    chip_init_regs 2
+    chip_init_regs 4
+    chip_init_regs 6
+    .long RI_REFRESH
+    .long 0 # terminator
 
-#if CURRENT_CALIBRATION
-    li vaddr, 0xA0000000
-    sll chip_id, 10
-    or vaddr, chip_id
+    .type rdram_init_regs, @object
+    .size rdram_init_regs, . - rdram_init_regs
 
-    li $t0, (1<<12) | (1<<1) | (1<<2)    # DE=1 => turn on the chip
-    sw $t0, RDRAM_REG_MODE(RDRAM_CHIP)
+rdram_init_values:
+    .long RI_CONFIG_AUTO_CALIBRATION                                // 0
+    .long 0                                                         // 1
+    .long RI_SELECT_RX_TX                                           // 2
+    .long 0                                                         // 3
+    .long RI_MODE_RESET                                             // 4
+    .long RI_MODE_STANDARD                                          // 5
+    .long MI_WMODE_SET_REPEAT_MODE | MI_WMODE_REPEAT_LENGTH(16)     // 6
+    .long ROT16(RDRAM_REG_DELAY_MAKE(5, 7, 3, 1))                   // 7
+    .long RDRAM_REG_DEVICE_ID_MAKE(INITID)                          // 8
+    .long 0                                                         // 9
+    chip_init_values 0
+    chip_init_values 2
+    chip_init_values 4
+    chip_init_values 6
+    .long RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE |  RI_REFRESH_CLEANDELAY(52) \
+        | RI_REFRESH_DIRTYDELAY(54) \
+        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)
 
-    li cc, 0
-
-.Lcalibrate_loop:
-    set_cc cc
-    li $t3, 8-1                 # Do 8 RDRAM read tests
-    li $t0, 0xFFFFFFFF
-.Lrdram_test:
-    sw $t0, 0(vaddr)
-    sw $t0, 4(vaddr)
-    lb $t2, 5(vaddr)
-    and $t0, $t2
-    bgtz $t3, .Lrdram_test
-     addiu $t3, -1
-
-    # Now $t0 is 0xffffffff if all read bits were 1. This is the stopping
-    # condition we're looking for
-    addiu $t0, 1
-    bnezl $t0, .Lcalibrate_loop
-     addiu cc, 1
-
-    # Real IPL3 does a weighted sum of the number of 1 bits in the
-    # read data, and then multiply that by 2.2. We don't do that, and just
-    # double the cc value and use it.
-    # We also avoid configuring the auto current mode, as we don't really
-    # need to handle temperature changes in the span of a couple of minutes
-    # of running time of the intro.
-    sll cc, cc, 1
-    set_cc cc
-
-#else
-    # Use a fixed CC value of 0x30 that seems to work perfectly on all tested
-    # units.
-    li $t3, RDRAM_MODE_DE | RDRAM_MODE_AS | 0x40000000 | RDRAM_MODE_CC(0x30)
-    sw $t3, RDRAM_REG_MODE(RDRAM_CHIP)
-#endif
-
-    # Configure the RAS interval to a fixed value that is known to work
-    # on hopefully all RDRAM chips shipped with the N64.
-    li $t0, RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)
-    sw $t0, RDRAM_REG_RAS_INTERVAL(RDRAM_CHIP)
-
-    # Do 8 reads to settle timing circuits
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    lb $zero, 0(vaddr)
-    jr $ra
-     lb $zero, 0(vaddr)
-
-#if CURRENT_CALIBRATION
-shifts:
-    .byte 23, 15, 7, 22, 14, 6
-#endif
-    .type mini_rdram_calibrate_current, @function
-    .size mini_rdram_calibrate_current, .-mini_rdram_calibrate_current
-
+    .type rdram_init_values, @object
+    .size rdram_init_values, . - rdram_init_values
