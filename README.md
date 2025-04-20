@@ -235,3 +235,83 @@ instrument was programmed to store its settings as JSON in the DAW project
 (using the GetChunk/SetChunk mechanism). We were happy to see that MuLab did not
 apply any compression to its project files, so it was relatively easy to write a
 script to scrape the JSONs from the MuLab project file.
+
+
+3D Graphics
+=====
+
+### Overview
+
+Drawing 3D meshes on the N64 requires requires a good amount of code.<br>
+While there is dedicated hardware in form of a rasterizer (the RDP), it will only process 2D screen-space triangles.<br>
+On top of that, the format expects them to be pre-processed into starting points and slopes, instead of just a pair of 3 vertices (See [RDP Triangle](https://n64brew.dev/wiki/Reality_Display_Processor/Commands#0x08_through_0x0F_-_Fill_Triangle) for more information).<br>
+This means that the entire 3D pipeline from transformation, lighting, clipping and slope calculations needs to be done in software.<br>
+
+While it is possible to do this on the CPU, games will offload this onto the RSP with special code called "microcode" or "ucode".<br>
+
+The main advantage here are the 32 vector registers with 8 lanes each (all 16bit integers).<br>
+On top it can also execute a scalar and vector instruction at the same time under certain conditions.<br>
+
+Usually the hardest part of writing ucode is understanding all the nuances of the rather special instruction set, as well as keeping it fast.<br>
+Instructions can stall each other with complicated rules, requiring manual  re-ordering (See [RSP Pipeline](https://n64brew.dev/wiki/Reality_Signal_Processor/CPU_Pipeline)).<br>
+
+Normally all of this is written directly in assembly, due to a lack of compiler support.<br>
+There is however a high-level language called [RSPL](https://github.com/HailToDodongo/rspl) which was developed together with one of the homebrew 3D ucodes [Tiny3D](https://github.com/HailToDodongo/tiny3d), which this demo loosely used for reference.
+
+### Demo Ucode
+
+For this demo the ucode had to be written way differently than you usually would.<br>
+Instead of running fully in parallel, it is instead synced with the CPU, which avoids having to implement a command queue system.<br>
+The idea being that the RSP is halted by default, while the CPU can setup the data for the next task.<br>
+
+Mesh data in form of unindexed triangles are generated once in RDRAM via the CPU.<br>
+The exact location and size is hardcoded in the ucode.<br>
+
+The other input parameters that change over time (rotation, scaling) are directly set to DMEM.<br>
+Note that this can only be done here since the RSP is halted, otherwise it may cause bus conflicts.<br>
+
+Each frame the CPU will calculate a fixed-point transformation matrix only containing rotation.<br>
+Which intern can be used to rotate both the vertices and normals at the same time.<br>
+Scaling is provided as a single scalar which gets applied after that.<br>
+
+Once the RSP is started it will then load the parameters, and starts processing the triangles by streaming them in one by one.<br>
+Each getting transformed, lighting and effects applied, and finally converted and send to the RDP for rasterization.<br>
+Lastly it will stop itself halting the processor.<br>
+
+In order to reduce instructions a lot of things where removed including: perspective, input data for UVs and color, clipping and rejection as well as some precision for the final RDP slopes.<br>
+
+One of the challenges with that was to work with the compression in mind.<br>
+For example the automatic reordering of RSPL was disabled for this demo.<br>
+While it may not change the size, it created less "uniform" code.<br>
+As a tradeoff this made the code run way slower than it could however.<br>
+
+The process of how the RDP will fetch data was also changed.<br>
+Normally you can point it to a buffer in RDRAM from which to fetch commands via a register.<br>
+While this gives you a lot of memory to work with, it requires a DMA form the RSP to get it there.<br>
+Instead we point it directly to DMEM to avoid that, with the tradeoff of dealing with the 4kb DMEM size and reduced performance once more due to more syncing.<br>
+
+However only reducing code doesn't make for a great demo, so a few effect where squeezed in.<br>
+All of which work by using the existing data with little extra code:
+
+#### UV-Gen
+UVs are generated based on the screen-space normals X and Y position.<br>
+Which is a simplified form of spherical texture coordinates.<br>
+The RDP will later draw a texture with that, where the texture data itself is simply random data in RDRAM.<br>
+This gives the torus a metallic appearance.<br>
+
+#### Fresnel
+By taking the Z-component of the normals and scaling it, we can get a cheap fresnel factor.<br>
+That factor is later used to blend towards another random texture for the colored outline effect.<br>
+
+#### Specular
+The specular highlights are faked by taking the previous fresnel factor and inverting it.<br>
+Effectively simulating a light pointing directly at the screen.<br>
+By multiplying it with itself a few times, which also compresses nicely, we can get a sharp highlight.<br>
+This value is passed as vertex color to the RDP, and is then added on top of the texture color.<br>
+
+#### Explosion Effect
+
+A scalar can be passed in which which will displace a triangle.<br>
+This will take the first vertex of a triangle together with parts of the matrix to generate an offset in screen-space.<br>
+The exact calculation have no deeper meaning and where chosen randomly.<br>
+By adding this scaled displacement onto all vertices of a triangle they will start flying across the screen.<br>
