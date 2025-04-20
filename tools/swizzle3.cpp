@@ -28,6 +28,9 @@
 // Include ELFIO (header-only)
 #include "elfio/elfio.hpp"
 
+// Simplified thread map primitive
+#include "thread_utils.h"
+
 namespace fs = std::filesystem;
 
 // -----------------------------------------------------------------------------
@@ -353,34 +356,28 @@ int main(int argc, char** argv) {
     // 5. Multiple-Round Deterministic Simulated Annealing.
     // -------------------------------------------------------------------------
     int rounds = 10;                 // total rounds
+    int tries_per_round = 10;        // different tries per round
     int iterations_per_round = 200;  // iterations per round per thread
     double initial_temp = 1.0;
     double cooling_rate = 0.995;
-    int thread_count = std::thread::hardware_concurrency();
-    if (thread_count < 1)
-        thread_count = 1;
 
     for (int round = 0; round < rounds && !g_stop.load(); round++) {
         std::string status = "Optimizing... (" + std::to_string(globalCost) + " bytes)";
         progressBar(round, rounds, status);
-        std::vector<SAResult> roundResults(thread_count);
-        std::vector<std::thread> threads;
-        for (int t = 0; t < thread_count; t++) {
-            threads.push_back(std::thread([&, t, round]() {
-                // Each thread uses a fixed seed derived from a constant, round, and thread id.
-                unsigned seed = 42 + round * 100 + t;
-                roundResults[t] = runSAFromCandidate(globalCandidate, candidates, prefixBuffer,
-                                                      iterations_per_round,
-                                                      initial_temp, cooling_rate,
-                                                      seed);
-            }));
-        }
-        for (auto &th : threads)
-            th.join();
+        std::vector<SAResult> roundResults(tries_per_round);
+
+        thParaLoop(tries_per_round, [&](int thread_id) {
+            // Each thread uses a fixed seed derived from a constant, round, and thread id.
+            unsigned seed = 42 + round * 100 + thread_id;
+            roundResults[thread_id] = runSAFromCandidate(globalCandidate, candidates, prefixBuffer,
+                                                         iterations_per_round,
+                                                         initial_temp, cooling_rate,
+                                                         seed);
+        });
 
         // Merge per-thread results deterministically.
         SAResult bestRound = roundResults[0];
-        for (int t = 1; t < thread_count; t++) {
+        for (int t = 1; t < tries_per_round; t++) {
             if (roundResults[t].best_cost < bestRound.best_cost ||
                (roundResults[t].best_cost == bestRound.best_cost &&
                 roundResults[t].best_permutation < bestRound.best_permutation))
