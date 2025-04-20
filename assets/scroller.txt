@@ -1,5 +1,0 @@
-Welcome to Small64 - the first 4k intro on N64 ever! Have you ever thought
-it was possible to cram 3d graphics, audio and a font in a 4K N64 ROM?
-Neither did I... until I tried! So sit back, relax and enjoy this old
-school intro!                                 3D graphics? What 3d graphics?
-                            Oh here it is!

@@ -10,8 +10,6 @@
 # * Stage 2 is the demo
 # ============================
 
-#include "loader.h"
-
 # Value of the $t3 register at IPL3 boot
 #define BOOT_T3_VALUE           0xA4000040
 
