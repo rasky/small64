@@ -2,7 +2,6 @@
 #include <stdbool.h>
 #include "minidragon.h"
 #include "minilib.h"
-#include "stage1.h"
 #include "ay8910.h"
 #include "rdp_commands.h"
 #include "rdpq_macros.h"
@@ -53,7 +52,7 @@
 extern int get_tv_type(void);
 extern bool sys_bbplayer(void);
 #else
-static int get_tv_type(void) { return *IPL3_TV_TYPE; }
+static int get_tv_type(void) { return VIDEO_TYPE; }
 static bool sys_bbplayer(void) { return (*MI_VERSION & 0xF0) == 0xB0; }
 #endif
 
