@@ -5,8 +5,8 @@ Submitted at Revision 2025.
 This document gives technical insights on how Small64 works and how we
 achieved it.
 
-Quick recap of N64 hardware
-===========================
+## Quick recap of N64 hardware
+
 This is a short description of N64 hardware just to frame your mind about
 the challenge:
 
@@ -21,8 +21,8 @@ the challenge:
    perspective correction, Z-buffering, etc. Not programmable.
  * Audio: just a plain DAC playing back 16-bit stereo samples from RDRAM.
 
-How a standard N64 ROM works
-============================
+## How a standard N64 ROM works
+
 Normally, a N64 ROM has the following layout:
 
            ----------------------
@@ -50,17 +50,11 @@ a complex current calibration process, and then loads the actual game
 actually started providing their own code.
 
 The 64-byte header of the ROM contains several metadata about the ROM, starting
-with the title, the region, etc. It is interesting to notice that, even
-though all ROMs, including homebrew, adhere to this layout, in practice
-only very few bytes of the header are actually used at runtime: 
- * the ROM access speed (4 bytes), read by IPL1/2 to make sure it does access
-   the cartridge at the correct speed supported by the ROM chips.
- * the game entrypoint (4 bytes) which is read by IPL3 to know where to jump
-   when it's done.
+with the title, the region, etc. Most of it is just conventional data though,
+not really needed at runtime.
 
+## How small64 works
 
-How small64 works
-=================
 To actually make a 4 KiB intro, we only have one option:
 
            ----------------------
@@ -68,16 +62,16 @@ To actually make a 4 KiB intro, we only have one option:
            ----------------------
 
 So our intro *has to be the header and the IPL3*. This means that the intro
-must also take care of initializing RDRAM. And moreover, the intro itself has to
-match the hardcoded checksum that IPL1/2 is going to calculate, otherwise
+must also take care of initializing RDRAM. And moreover, **the intro itself has to
+match the hardcoded checksum that IPL1/2 is going to calculate**, otherwise
 it will not boot.
 
 Inserting some code in the header is a common technique on PC too, so we just
 adapted the same logic to Nintendo 64. In our case, there is only one part
 that we need to preserve: byte 2, 3, and 4 that are used by IPL1/2 to configure
 the ROM access speed. Everything else can be used. As a nice touch, we also
-stored the ASCII name at offset 0x20, so that it is displayed correctly by
-flashcart menus and ROM managers.
+store the ASCII name at offset 0x20 as expected in ROMs, so that it is
+displayed correctly by flashcart menus and ROM managers.
 
 To boot the console, we had to write our own *compact* RDRAM initialization
 routine. This was a bit challenging if you consider that the full initialization
@@ -94,8 +88,13 @@ sequence. Current calibration is not performed: we only use a fixed value
 that appears to work perfectly fine on most console at least when they are
 semi-warm. In the end, our RAM init code is just 0x2ec bytes, before compression.
 
-Compression
-===========
+It seems that because of this, the intro fails to boot on cold console; if
+that's the case for you, just run another ROM for a few seconds and then try
+again. It should then work. We're hopefully going to fix this in a followup
+release.
+
+## Compression
+
 For ROM compression, we needed something that could run on the MIPS CPU,
 even *before* the RAM is initialized, as we wanted to also compress RAM init code.
 Libdragon ships various algorithms including Shrinkler, which is the "grandfather"
@@ -122,8 +121,7 @@ segment), which compresses down to 3786 bytes. Not bad! We include the BSS
 segment in the compression because zeros compress very well, and so that the
 decompression will clear that memory.
 
-Small64 boot process
-====================
+## Small64 boot process
 
 Let's now see how the ROM is actually laid out:
 
@@ -168,20 +166,22 @@ So how do you decompress an intro if RAM is not available? That's what we do:
 Wow, quite a journey! All in all, we managed to have to first compressed
 byte of the intro at offset 0x23B, meaning that the intro itself
 
-The last 8 bytes were reserved for the bruteforcing cookie. If you remember,
-IPL1/2 will verify the IPL3 checksum to make sure it matches a hardcoded
-value. If this check fails, the ROM won't boot, so we need to make sure
-our final ROM matches this checksum. How can it be possible?
+## GPU hash cracking for an intro?
 
-To do so, we perform GPU hash cracking (technically, a "pre-image attack")
-by tweaking the last 8 bytes of the ROM testing millions and millions of values
+We reserved the last 8 bytes of the ROM for the bruteforcing cookie. What is it?
+
+As explained above, IPL1/2 will verify the IPL3 checksum using a bespoke algorithm,
+to make sure it matches a hardcoded value. If this check fails, the ROM won't boot,
+so we need to make sure our final ROM matches this checksum. How can it be possible?
+
+We perform GPU hash cracking (technically, a "pre-image attack") by tweaking the
+last 8 bytes of the ROM testing millions and millions of values
 until we find one that matches the requested checksum. This is a process
-that can take multiple hours on modern GPUs (eg: ~18/24 hours on a M1 Pro).
+that can take multiple hours on modern GPUs (eg: ~18/24 hours on a Apple M1 Pro).
 This technique is also used by Libdragon to release their own open-source
-IPL3s, so tooling for this was already available.
+IPL3s, so [tooling for this](https://github.com/rasky/ipl3hasher) was already available.
 
-Music
-=====
+## Music
 
 The initial experiments started with [dollchan bytebeat
 tool](https://dollchan.net/bytebeat/), but it is essentially JavaScript,
