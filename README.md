@@ -164,7 +164,8 @@ So how do you decompress an intro if RAM is not available? That's what we do:
    actual intro begins!
 
 Wow, quite a journey! All in all, we managed to have to first compressed
-byte of the intro at offset 0x23B, meaning that the intro itself
+byte of the intro at offset 0x23B, meaning that the intro itself has to fit
+into 3525 (compressed) bytes.
 
 ## GPU hash cracking for an intro?
 
