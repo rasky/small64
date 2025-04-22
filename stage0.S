@@ -1,8 +1,7 @@
 # ============================
 # IPL2 loaded the whole ROM ("IPL3") into DMEM. This is what happens:
 #
-# * Stage 0 decompresses stage 1 from DMEM into CPU Cache.
-# * Stage 0 copies decompressed Stage 1 from CPU Cache to IMEM.
+# * Stage 0 decompresses stage 1 from DMEM into IMEM
 # * Stage 0 jumps to IMEM to run Stage 1
 # * Stage 1 initializes RDRAM and returns
 # * Stage 0 decompresses stage 2 from DMEM into RDRAM
@@ -23,6 +22,27 @@
 #define decomp_return   $a3
 #define dmem_base       $t3         // Base address for lax macro (set by IPL2)
 
+#define offset                 $t4
+#define ra2                    $t5
+#define ctx                    $t6
+#define state                  $t7
+#define prev_was_literal       $t8
+#define decoded_bit            $v0
+#define number_incr            $k0
+#define writeword              $v1
+#define upkr_decode_number_addr $k1
+#define upkr_decode_bit_addr   $s3
+
+# lax load an address of a label into a register. We use $t3 as a base address
+# to calculate the offset, so that the load can be performed as a relative
+# offset in one instruction, rather than a 32-bit load in two.
+.macro lax reg, address
+    addiu \reg, dmem_base, \address - _start
+.endm
+
+# Convert a DMEM label into the address of the same function in ROM
+#define DMEM_TO_ROM(addr)       (header_start + (addr - _start) + 0x40)
+
     .set at
     .set noreorder
 
@@ -36,38 +56,52 @@
 # to load the ROM into DMEM.
 
     .section .header, "ax"
+header_start:
 
     # PI DOM1 parameters. The first byte is actually unused so we change the
     # common value from 0x80 to 0x11, so that the opcode disasms as "andi"
     # which means that it can also be run if necessary.
     .long 0x31371240            # andi $s7, $t1, 0x1240
-post_stage1_decomp:
-    # This code is run after stage1 has been decompressed.
-    # outbuf now points to the end of the decompressed stage1 in cache.
-    # Now copy the decompressed stage1 into IMEM, just after stage0. We can't
-    # run stage1 from cache because icache fetches only from RDRAM, not dcache.
-    li $a1, 0x80900000      # src
-    li $a0, 0xA4000000      # dst
-    addiu $a2, $a0, 0x1000
-    addiu $ra, $a0, (stage2_decomp - 0xA4000000)    # After stage1, go to stage2_decomp
-    lui decomp_return, %hi(STAGE2_ENTRYPOINT)
-    #if RUNNABLE_TITLE
-    li outbuf_end, 0xB0000000          # Stage 2 decompressed end pointer (= unbounded)
-    #else
-    b .Lcopy_loop
-    #endif
-     addiu inbuf, $a0, (__stage12 - 0xA4000000)  # Source pointer: PI address of stage12
+
+# Decode an elias gamma value into "prev_was_literal".
+# The value is stored *negated*, as that's useful for the caller.
+# On exit, return to "ra2"
+upkr_decode_number:
+    # Load the address of the upkr_decode_bit address in DMEM. We could 
+    # instead run it from ROM but then the whole decompression becomes quite slow.
+    # Since we have an extre free word here in the header, let's use it this way.
+    lax upkr_decode_bit_addr, upkr_decode_bit
+    li prev_was_literal, 0
+    li number_incr, -1
+.Lelias_loop:
+    jalr upkr_decode_bit_addr
+     addiu $fp, upkr_decode_number_addr, (.Lnumber_end - header_start)
+    jalr upkr_decode_bit_addr
+     addiu $fp, upkr_decode_number_addr, (.Lelias_loop_next - header_start)
     .asciiz "Small64"           # ASCIIZ ROM title (8 bytes, including 0 terminator)
                                 # When run, it's a "beql $k1, $t5", plus an invalid opcode
                                 # that won't ever be run, since beql will skip it
-.Lcopy_loop:
-    lw $t0, 0($a1)
-    addiu $a1, 4
-    sw $t0, 0x1000($a0)
-    bne $a0, $a2, .Lcopy_loop   # Always copy 4K. We don't waste an opcode to know the exact size here
-     addiu $a0, 4
-    jr $a2                      # Jump to stage1 in IMEM
-
+    addu prev_was_literal, number_incr
+.Lelias_loop_next:
+    b .Lelias_loop
+     addu number_incr, number_incr
+.Lnumber_end:
+    jr ra2
+     addu prev_was_literal, number_incr
+    
+    # We respect the last word in the header, so that we can encode the video
+    # type. This is just advisory, but it allows emulators to self-configure
+    # correctly when running our ROMs.
+    .byte 0
+    .byte 0
+#if VIDEO_TYPE == 0 // PAL
+    .byte 'X'
+#elif VIDEO_TYPE == 1 // NTSC
+    .byte 'E'
+#elif VIDEO_TYPE == 2 // MPAL
+    .byte 'B'
+#endif
+    .byte 0
 
 # ============================
 # Stage 0
@@ -80,34 +114,27 @@ post_stage1_decomp:
     .globl _start
 
 _start:
-    # Decompress stage1 into CPU cache. The decompression routine needs 8/16/32
-    # bit writes to the destination buffer, and the cache is the only available
-    # right now that allows for these. The exact address won't matter (as
-    # RDRAM is not initialized yet and we are not going to flush the cache),
-    # but we use 0x80002000 as address so that emulators that don't emulate
-    # CPU cache stil have RDRAM here.
-     li outbuf, 0x80900000             # Destination pointer: CPU cache
-    addiu inbuf, dmem_base, (__stage12 - BOOT_T3_VALUE)  # Source pointer: compressed stage 1 (already loaded in DMEM by IPL2)
-    addiu $sp, outbuf, 0x2000         # Decompression also needs the stack: end of CPU cache
-    addiu outbuf_end, outbuf, STAGE1_SIZE    # End of destination buffer
-    b decompress
-     li decomp_return, 0xB0000000            # Post-decompression go to ROM start
+    # Set output pointer for destination buffer to IMEM. This is a convoluted
+    # way to do it as an offset from dmem_base so that we only do that in one opcode.
+    addiu outbuf, dmem_base, (0xA4001000 - BOOT_T3_VALUE)
 
-stage2_decomp:
-    # Stage1 returned the memory size in $v0
-    # Prepare for stage2. Stage2 will run from 0x8000'0000
-    # NOTE:
-    # Both inbuf and outbuf_end have been already set in the header code (post_stage1_decomp).
-    # outbuf_end = 0xB000'0000 (acts as "infinite", it will stop when it's finished anyway)
-    # inbuf = DMEM address of compressed stage12.
-    li outbuf, 0xA0000000              # Stage 2 decompression output pointer (uncached address)
-    addiu decomp_return, decomp_return, %lo(STAGE2_ENTRYPOINT)
-#if !RUNNABLE_TITLE
-    li outbuf_end, 0xB0000000        # Set outbuf_end here if it couldn't fit the header
-#endif
-    #
-    # Fallthrough to decompression code
-    #
+    # Configure the stack pointer in CPU cache. This is also the final value for $sp
+    # that will be used when the demo boots, so that we don't need to change it anymore.
+    li $sp, 0x80400000
+
+    # Configure the end pointer for decompression, so that the decompression routine
+    # exits when it has finished unpacking Stage 1.
+    addiu outbuf_end, outbuf, STAGE1_SIZE
+
+    # We put upkr_decode_number function in the header, we need an address to run
+    # it from there.
+    li upkr_decode_number_addr, 0xB0000000
+
+    # At the end of decompression, run the stage1 from IMEM.
+    move decomp_return, outbuf
+
+    # Source pointer: compressed data stream (already loaded in DMEM by IPL2)
+    addiu inbuf, dmem_base, (__stage12 - BOOT_T3_VALUE)  
 
     ###################################################
     # upkr decompressor
@@ -121,15 +148,6 @@ stage2_decomp:
 #define UPKR_PARITY            4
 #define UPKR_PARITY_LOG2       (UPKR_PARITY/2)     // works for 1,2,4
 #define UPKR_NUM_CONTEXTS      (256*UPKR_PARITY + 64*2*UPKR_PARITY)
-
-#define offset                 $t4
-#define ra2                    $t5
-#define ctx                    $t6
-#define state                  $t7
-#define prev_was_literal       $t8
-#define decoded_bit            $v0
-#define number_incr            $k0
-#define upkr_decode_number_addr $k1
 
 .equ hex.$zr, 0;  .equ hex.$at, 1;  .equ hex.$v0, 2;  .equ hex.$v1, 3
 .equ hex.$a0, 4;  .equ hex.$a1, 5;  .equ hex.$a2, 6;  .equ hex.$a3, 7
@@ -145,13 +163,6 @@ stage2_decomp:
 # first opcode there will always be run as delay slot of *this* bltz.
 .macro delay_bltz reg, label, prev_branch
     .long (1<<26) | (hex.\reg << 21) | (0 << 16) | ((\label - \prev_branch) >> 2)
-.endm
-
-# lax load an address of a label into a register. We use $t3 as a base address
-# to calculate the offset, so that the load can be performed as a relative
-# offset in one instruction, rather than a 32-bit load in two.
-.macro lax reg, address
-    addiu \reg, dmem_base, \address - _start
 .endm
 
 # Main UPKR decompression loop
@@ -201,17 +212,22 @@ decompress:
      move $fp, $ra
     addiu ctx, -UPKR_PARITY                 # reverse the increment by upkr_decode_bit
     sll ctx, 1                              # make room for the new bit
-    addu ctx, decoded_bit                   # merge in decoded bit
     srl prev_was_literal, ctx, 8+UPKR_PARITY_LOG2
     beqz prev_was_literal, .Lliteral        # check if we're done (8 bits decoded)
+     addu ctx, decoded_bit                   # merge in decoded bit
 
     # NOTE: this code is shared for both literal and match. In case of literal,
     # prev_was_literal is > 0 (see just above) and the actual value doesn't matter.
     # In case of match, prev_was_literal is < 0 and it is the match counter.
 .Lstore_byte:
-     sb ctx, (outbuf)                       # store the byte (either literal or copied)
-    addiu prev_was_literal, 1               # decrement match counter
+    # NOTE: this sequence allows to perform correct 8-bit writes to IMEM, which
+    # are necessary for upkr to work correctly. A simple "sb" would not work.
+    sll writeword, 8                        # make space for the new byte
+    andi ctx, 0xFF                          # isolate the byte
+    or writeword, ctx                       # merge in the new byte
+    sb writeword, (outbuf)                  # store the byte (either literal or copied)
     addiu outbuf, 1                         # increment output buffer
+    addiu prev_was_literal, 1               # decrement match counter
     b .Lmainloop                            # prev_was_literal<0? continue copy, otherwise jump back to main loop
      delay_bltz prev_was_literal, .Lcopy_byte, .Lmainloop
 
@@ -260,29 +276,9 @@ upkr_decode_bit:
     move $fp, $ra
 1:
     # Store the updated probability and return. $fp now contains the correct
-    # return target (depending on whether the bit was 0 or 1). Take the chance
-    # to initialize upkr_decode_number_addr to the address of upkr_decode_number.
-    jalr upkr_decode_number_addr, $fp
+    # return target (depending on whether the bit was 0 or 1).
+    jr $fp
      sb prob, ($t0)
-
-# Decode an elias gamma value into "prev_was_literal".
-# The value is stored *negated*, as that's useful for the caller.
-# On exit, return to "ra2"
-upkr_decode_number:
-    li prev_was_literal, 0
-    li number_incr, -1
-.Lelias_loop:
-    bal upkr_decode_bit
-     lax $fp, .Lnumber_end
-    bal upkr_decode_bit
-     lax $fp, .Lelias_loop_next
-    addu prev_was_literal, number_incr
-.Lelias_loop_next:
-    b .Lelias_loop
-     addu number_incr, number_incr
-.Lnumber_end:
-    jr ra2
-     addu prev_was_literal, number_incr
 
 
 #undef prob

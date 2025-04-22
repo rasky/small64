@@ -34,6 +34,13 @@
     .section .text.stage1, "ax"
     .globl stage1
 
+#define inbuf           $s1
+#define outbuf          $s2
+#define outbuf_end      $s0
+#define decomp_return   $a3
+#define dmem_base       $t3         // Base address for lax macro (set by IPL2)
+
+
 #define C0_TAGLO                $28
 #define C0_TAGHI                $29
 #define INDEX_STORE_TAG_D       0x9
@@ -74,6 +81,9 @@
 #define MI_WMODE_SET_UPPER_MODE             0x2000
 #define MI_WMODE_CLEAR_UPPER_MODE           0x1000
 
+#define PIF_COMMAND                         0xBFC007FC
+#define PIF_COMMAND_ACK                     0x8
+
 #define RDRAM_REG_DEVICE_ID          (1 * 4)
 #define RDRAM_REG_DELAY              (2 * 4)
 #define RDRAM_REG_MODE               (3 * 4)
@@ -109,13 +119,13 @@
 
 
 stage1:
-    la $v0, rdram_init_regs
+    addiu $v0, dmem_base, %lo((rdram_init_regs - stage1) + (0xA4001000 - 0xA4000040))
 .Lrdram_init_loop:
-    lw $v1, 0($v0)
-    beqz $v1, .Lrdram_init_end
-    lw $a0, %lo(INIT_VALUE_OFF)($v0)
+    lw decomp_return, 0($v0)
     addiu $v0, 4
-    sw $a0, 0($v1)
+    beqz decomp_return, .Lrdram_init_end
+     lw $gp, %lo(INIT_VALUE_OFF-4)($v0)
+    sw $gp, 0(decomp_return)
     # Some delay is required after some of the writes of the initialization
     # routine. We always delay as it doesn't matter, and do that with
     # a series of nops that compress very well.
@@ -132,27 +142,25 @@ stage1:
     # boot garbage can cause crashes).
      mtc0 $zero, C0_TAGLO
     mtc0 $zero, C0_TAGHI
-    li $v0, 0x80000000
-    addiu $v1, $v0, 16384
+    li $t0, 0x80000000
+    addiu $t1, $t0, 16384
 .Lcache_purge_loop:
-    cache INDEX_STORE_TAG_D, 0($v0)
-    cache INDEX_STORE_TAG_I, 0($v0)
-    addiu $v0, 16
-    blt $v0, $v1, .Lcache_purge_loop
+    cache INDEX_STORE_TAG_D, 0($t0)
+    cache INDEX_STORE_TAG_I, 0($t0)
+    addiu $t0, 16
+    blt $t0, $t1, .Lcache_purge_loop
     
-    # PIF boot termination: write 0x8 at 0xBFC007FF
-    # This is required to ack the PIF that the boot sequence is terminated,
-    # otherwise it'll hang the CPU within ~5 seconds.
-     li $a0, 0xbfc00000
-    li $v0, 8
-    sw $v0, 0x7fc($a0)
- 
-    # Initialize gp for stage 2 (for sdata/sbss)
-    la $gp, _gp
-
-    # Configure the initial stack pointer (at the end of RAM)
+    # We now need to decompress and run Stage 2 (the intro). To do so:
+    #  outbuf = 0xA0000000 = uncached address of RDRAM where to write the intro
+    #  outbuf_end = 0xA400xxxx = leftover from stage1 decompression, still works fine as "unbounded" decompression
+    #                            (decompression will stop at the end of the compressed stream anyway)
+    #  decomp_return = stage2 entrypoint address. This is a relocation because we allow swizzle
+    #                  to move the entrypoint if needed to improve compression ratio.
+    addiu $ra, dmem_base, (0xa4000054 - 0xa4000040)
+    lw decomp_return, 0($v0)
     jr $ra
-     li $sp, 0x80400000
+     li outbuf, 0xA0000000
+
 
 
 #define INITID         0x1F
@@ -188,8 +196,10 @@ rdram_init_regs:
     chip_init_regs 2
     chip_init_regs 4
     chip_init_regs 6
-    .long RI_REFRESH
-    .long 0 # terminator
+    .long RI_REFRESH                                    // 10
+    .long PIF_COMMAND                                   // 11
+    .long 0                                             // 12 (terminator)
+    .long __stage2_entrypoint
 
     .type rdram_init_regs, @object
     .size rdram_init_regs, . - rdram_init_regs
@@ -211,7 +221,9 @@ rdram_init_values:
     chip_init_values 6
     .long RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE |  RI_REFRESH_CLEANDELAY(52) \
         | RI_REFRESH_DIRTYDELAY(54) \
-        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)
+        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)          // 10
+    .long PIF_COMMAND_ACK                                           // 11   
+    .long _gp                                                       // 12 (gp value in stage2)
 
     .type rdram_init_values, @object
     .size rdram_init_values, . - rdram_init_values

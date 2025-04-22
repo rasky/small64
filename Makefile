@@ -160,6 +160,7 @@ build/heatmap.html: build/stage12.bin
 $(ROM_NAME): build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 	@echo "    [Z64] $@"
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
+		-DVIDEO_TYPE=$(VIDEO_TYPE) \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
 		-DSTAGE2_ENTRYPOINT=0x$(shell $(N64_NM) build/small.elf | grep __stage2_entrypoint | cut -d ' ' -f1) \
 		-DCOMPRESSION_ALGO=$(COMPRESSION_ALGO) \
