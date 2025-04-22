@@ -19,22 +19,12 @@ SECTIONS {
     /DISCARD/ : { *(.mdebug.*) }
     /DISCARD/ : { *(.gnu.*) }
 
-    .text.prologue 0xA4000000 : {
-        KEEP(*(.header))
-    } > dmem
-
-    .text.stage0 : {
-        *(.stage0)
-    } > dmem
-
-    .text.banner : {
-        *(.banner)
-    } > dmem
+    /DISCARD/ : { *(.header) }
+    /DISCARD/ : { *(.stage0) }
 
     .text.stage1 : {
         __stage1 = .;
         KEEP(*(.stage1))
-        build/minirdram.o
         . = ALIGN(8);
     } > imem
 

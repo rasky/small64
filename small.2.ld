@@ -28,7 +28,6 @@ SECTIONS {
         LONG(0x00000000)
     } > dmem
 
-    /DISCARD/ : { *(.text.boot_trampoline) }
-    /DISCARD/ : { *(.text.ique_trampoline) }
+    /DISCARD/ : { *(.stage1) }
     /DISCARD/ : { *(.MIPS.abiflags) }
 }

@@ -66,7 +66,7 @@ N64_LDFLAGS = -Wl,-Tsmall.1.ld -Wl,-Map=build/small.map -Wl,--gc-sections
 SHRINKER ?= ../Shrinkler/build/native/Shrinkler
 
 # Objects used for the first compilation step (uncompressed)
-STAGE1_OBJS = build/minirdram.o
+BOOT_OBJS = build/stage0.o
 STAGE2_OBJS = build/demo.o build/torus.o # build/minilib.o
 
 # Sources used to build the final compressed binary
@@ -132,7 +132,7 @@ build/order.ld: $(STAGE2_OBJS) build/swizzle3
 	build/swizzle3 $@ $(filter %.o,$^)
 
 # Build initial binary with all stages (uncompressed), using the optimized order
-build/small.elf: small.1.ld build/order.ld $(STAGE1_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc
+build/small.elf: small.1.ld build/order.ld $(BOOT_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc
 	@echo "    [LD] $@"
 	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=stage1 -o $@ $(filter %.o,$^)
 
@@ -162,7 +162,6 @@ $(ROM_NAME): build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 	$(N64_CC) $(N64_CFLAGS) -Wl,-Tsmall.2.ld -Wl,-Map=build/small.compressed.map \
 		-DVIDEO_TYPE=$(VIDEO_TYPE) \
 		-DSTAGE1_SIZE=$(strip $(shell wc -c < build/stage1.bin.raw)) \
-		-DSTAGE2_ENTRYPOINT=0x$(shell $(N64_NM) build/small.elf | grep __stage2_entrypoint | cut -d ' ' -f1) \
 		-DCOMPRESSION_ALGO=$(COMPRESSION_ALGO) \
 		-o build/small.compressed.elf \
 		$(FINAL_SRCS)
