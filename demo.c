@@ -225,7 +225,7 @@ void demo(void)
     ai_init();
     vi_init();
     ucode_init();
-    music_init();
+    //music_init();
     gentorus(VERTEX_BUFFER);
 
     //skip to a certain scene:
@@ -256,7 +256,7 @@ void demo(void)
             mesh_draw_async(framecount > T_MESH2 ? 2 : 1);
         }
 
-        music_poll();
+        //music_poll();
 
         if (framecount > T_MESH) {
            mesh_draw_wait();
@@ -266,6 +266,8 @@ void demo(void)
         if (framecount > T_CREDITS) {
             draw_credits();
         }
+
+        draw_rdram_debug();
     }
 
     *VI_H_VIDEO = 0x0;

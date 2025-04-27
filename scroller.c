@@ -136,3 +136,19 @@ static void draw_credits(void)
     int off = phrases_off[phidx];
     draw_text(color, phrases+off, phrases_off[phidx+1] - off, xpos, 200);
 }
+
+static void draw_rdram_debug(void)
+{
+    volatile uint32_t* chip0_mode = (uint32_t*)(0xA3F00000 + 3*4);
+    uint32_t mode = *chip0_mode;
+    mode ^= 0x00C0C0C0;
+
+    int phidx;
+    if ((mode & 0x00C0C0C0) == (0x4640c0c0 & 0x00C0C0C0))
+        phidx = 7; // 0x20
+    else
+        phidx = 8; // 0x30
+
+    int off = phrases_off[phidx];
+    draw_text(colors[0], phrases+off, phrases_off[phidx+1] - off, 100, 50);
+}
