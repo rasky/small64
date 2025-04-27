@@ -85,6 +85,7 @@ def parse_args():
     parser.add_argument('filename', help='Path to the binary file')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose summary')
     parser.add_argument('--base', default='0', help='Base offset (decimal or hex)')
+    parser.add_argument('--skip', default='0', help='How many bytes to skip at the beginning')
     parser.add_argument('--limit', type=int, help='Maximum number of free bits to report')
     return parser.parse_args()
 
@@ -96,6 +97,20 @@ def main():
     except ValueError:
         print(f"Invalid base offset: {args.base}", file=sys.stderr)
         sys.exit(1)
+    if base % 4 != 0:
+        print(f"Base offset must be a multiple of 4: {base}", file=sys.stderr)
+        sys.exit(1)
+    base //= 4
+
+    try:
+        skip = int(args.skip, 0)
+    except ValueError:
+        print(f"Invalid skip value: {args.skip}", file=sys.stderr)
+        sys.exit(1)
+    if skip % 4 != 0:
+        print(f"Skip value must be a multiple of 4: {skip}", file=sys.stderr)
+        sys.exit(1)
+    skip //= 4
 
     try:
         with open(args.filename, 'rb') as f:
@@ -112,7 +127,7 @@ def main():
     free_bits_global = {}
 
     # Scan each 32-bit instruction
-    for idx in range(length // 4):
+    for idx in range(skip, length // 4):
         offset = idx * 4
         instr, = struct.unpack('>I', data[offset:offset+4])
         primary = (instr >> 26) & 0x3F
@@ -141,10 +156,7 @@ def main():
 
         # Accumulate global free bit positions
         for bit in free_bits:
-            global_bit = idx * 32 + bit
-            byte_idx = base + (global_bit // 8)
-            bit_pos = global_bit % 8
-            free_bits_global.setdefault(byte_idx, set()).add(bit_pos)
+            free_bits_global.setdefault(idx+base, set()).add(bit)
 
     # Print verbose summary
     if args.verbose:
@@ -165,13 +177,13 @@ def main():
 
     # Group by byte for output ranges
     grouped = {}
-    for byte_idx, bit in flat_bits:
-        grouped.setdefault(byte_idx, []).append(bit)
+    for word_idx, bit in flat_bits:
+        grouped.setdefault(word_idx, []).append(bit)
 
     # Build output entries
     entries = []
-    for byte_idx in sorted(grouped):
-        bits = sorted(grouped[byte_idx])
+    for word_idx in sorted(grouped):
+        bits = sorted(grouped[word_idx])
         ranges = []
         start = prev = bits[0]
         for b in bits[1:]:
@@ -183,12 +195,12 @@ def main():
         ranges.append((start, prev))
 
         for a, b in ranges:
-            if a == 0 and b == 7:
-                entries.append(f"{byte_idx}")
+            if a == 0 and b == 31:
+                entries.append(f"{word_idx}")
             elif a == b:
-                entries.append(f"{byte_idx}[{a}]")
+                entries.append(f"{word_idx}[{a}]")
             else:
-                entries.append(f"{byte_idx}[{a}..{b}]")
+                entries.append(f"{word_idx}[{b}..{a}]")
 
     # Print final bit list
     print(','.join(entries))
