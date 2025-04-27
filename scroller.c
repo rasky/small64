@@ -139,15 +139,31 @@ static void draw_credits(void)
 
 static void draw_rdram_debug(void)
 {
-    volatile uint32_t* chip0_mode = (uint32_t*)(0xA3F00000 + 3*4);
-    uint32_t mode = *chip0_mode;
-    mode ^= 0x00C0C0C0;
+    uint32_t word = *(uint32_t*)0xA0330000;
 
     int phidx;
-    if ((mode & 0x00C0C0C0) == (0x4640c0c0 & 0x00C0C0C0))
-        phidx = 7; // 0x20
+    if (word == 0x20)
+        phidx = 7;
+    else if (word == 0x30)
+        phidx = 8;
     else
-        phidx = 8; // 0x30
+        return;
+
+    // volatile uint32_t* chip0_mode = (volatile uint32_t*)(0xA3F00000 + 3*4);
+    // uint32_t mode = *chip0_mode;
+    // debugf("mode: %08lx\n", mode);
+    // mode ^= 0x00C0C0C0;
+    // debugf("invmode: %08lx\n", mode);
+
+    // for (int i=0;i<12;i++) {
+    //     debugf("reg[%d]: %08lx\n", i, *(volatile uint32_t*)(0xA3F00000 + (2<<10) + i*4));
+    // }
+
+    // int phidx;
+    // if ((mode & 0x00C0C0C0) == (0x4640c0c0 & 0x00C0C0C0))
+    //     phidx = 7; // 0x20
+    // else
+    //     phidx = 8; // 0x30
 
     int off = phrases_off[phidx];
     draw_text(colors[0], phrases+off, phrases_off[phidx+1] - off, 100, 50);

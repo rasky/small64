@@ -5,5 +5,5 @@ code: Rasky
 code: HailToDodongo
 code: phire
 music: pestis
-rdram: 0x20
+rdram: 0x18
 rdram: 0x30

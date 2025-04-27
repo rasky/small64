@@ -134,7 +134,7 @@ build/order.ld: $(STAGE2_OBJS) build/swizzle3
 # Build initial binary with all stages (uncompressed), using the optimized order
 build/small.elf: small.1.ld build/order.ld $(BOOT_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc
 	@echo "    [LD] $@"
-	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=stage1 -o $@ $(filter %.o,$^)
+	$(N64_CC) $(N64_CFLAGS) $(N64_LDFLAGS) -Wl,--entry=0 -o $@ $(filter %.o,$^)
 
 # Extract and compress stages
 build/stage12.bin: build/small.elf build/upkr$(EXE)
