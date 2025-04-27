@@ -27,7 +27,7 @@
 #define outbuf          $s2
 #define outbuf_end      $s0
 #define decomp_return   $a3
-#define dmem_base       $t3         // Base address for lax macro (set by IPL2)
+#define dmem_base       $t3         // Base address for lax_* macros (set by IPL2)
 
 #define offset                 $t4
 #define ra2                    $t5
@@ -40,16 +40,20 @@
 #define upkr_decode_number_addr $k1
 #define upkr_decode_bit_addr   $s3
 
-# lax load an address of a label into a register. We use $t3 as a base address
-# to calculate the offset, so that the load can be performed as a relative
-# offset in one instruction, rather than a 32-bit load in two.
-.macro lax reg, address
+# lax_stage0 loads the absolute address of a stage0 label into a register, using
+# just one opcode. 
+# We use $t3 as a base address to calculate the offset, so that the load can be
+# performed as a relative offset in one instruction, rather than a 32-bit load in two.
+.macro lax_stage0 reg, address
+    # _start will resolve to 0xA4000040, which is exactly BOOT_T3_VALUE.
     addiu \reg, dmem_base, \address - _start
 .endm
 
+# lax_stage1 loads the absolute address of a stage1 label into a register
 .macro lax_stage1 reg, address
+    # _stage1_start will resolve to 0xA4001000, so we need some offseting to
+    # calculate the distance from BOOT_T3_VALUE
     addiu \reg, dmem_base, %lo((\address - __stage1_start) + (0xA4001000 - BOOT_T3_VALUE))
-
 .endm
 
 # Convert a DMEM label into the address of the same function in ROM
@@ -82,7 +86,7 @@ upkr_decode_number:
     # Load the address of the upkr_decode_bit address in DMEM. We could 
     # instead run it from ROM but then the whole decompression becomes quite slow.
     # Since we have an extre free word here in the header, let's use it this way.
-    lax upkr_decode_bit_addr, upkr_decode_bit
+    lax_stage0 upkr_decode_bit_addr, upkr_decode_bit
     li prev_was_literal, 0
     li number_incr, -1
 .Lelias_loop:
@@ -194,12 +198,12 @@ upkr_decompress:
     bge outbuf, outbuf_end, .Lexit          # check if we reached the end of the output buffer
      andi ctx, outbuf, UPKR_PARITY-1        # calculate the context index (depending on output buffer and parity)
     bal upkr_decode_bit                     # decode a bit: 1->match, 0->literal
-     lax $fp, .Lliteral
+     lax_stage0 $fp, .Lliteral
     
     beqz prev_was_literal, .Lread_offset    # if prev was a literal, we must read an offset
      li ctx, 256*UPKR_PARITY
     bal upkr_decode_bit                     # decode a bit: 1->new offset 0->reuse offset
-     lax $fp, .Lgot_offset
+     lax_stage0 $fp, .Lgot_offset
 
 .Lread_offset:
     jalr ra2, upkr_decode_number_addr       # decode match offset into "prev_was_literal"
@@ -450,7 +454,7 @@ rdram_init:
     #  decomp_return = stage2 entrypoint address. This is a relocation because we allow swizzle
     #                  to move the entrypoint if needed to improve compression ratio.
     #  $ra = upx_decompress = address of the decompressor to run (from DMEM)
-     lax $ra, upkr_decompress
+     lax_stage0 $ra, upkr_decompress
     li outbuf, 0xA0000000
 
     # Switch to next current alternative
@@ -465,16 +469,57 @@ rdram_init:
 
     li $t2, 0xA0000000
     sw $t0, ($t2)
-    nop; nop; nop; nop;
-    lw $t1, ($t2)
-    bne $t0, $t1, .Lrdram_init_loop_start
-     
-     li $t2, 0xA0200000
+    addiu $t2, 4
     sw $t0, ($t2)
-    nop; nop; nop; nop;
+    addiu $t2, 4
+    sw $t0, ($t2)
+    addiu $t2, 4
+    sw $t0, ($t2)
+
+    li $t2, 0xA0000000
     lw $t1, ($t2)
-    bne $t0, $t1, .Lrdram_init_loop_start
-     nop
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:
+
+    li $t2, 0xA0200000
+    sw $t0, ($t2)
+    addiu $t2, 4
+    sw $t0, ($t2)
+    addiu $t2, 4
+    sw $t0, ($t2)
+    addiu $t2, 4
+    sw $t0, ($t2)
+
+    li $t2, 0xA0200000
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:  addiu $t2, 4
+    lw $t1, ($t2)
+    bnel $t0, $t1, 1f
+     lax_stage1 $ra, .Lrdram_init_loop_start
+1:
 
     # Exit stage 1
     jr $ra
