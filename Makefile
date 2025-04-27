@@ -147,7 +147,7 @@ build/stage12.bin: build/small.elf build/upkr$(EXE)
 	build/upkr$(EXE) --heatmap --parity 4 $@; \
 	tools/heatmap.py --heatmap build/stage12.heatmap $< .text.stage1 .text.stage2 .text.stage2u | head -n 10; \
 
-stats: build/small.elf
+stats: build/stage12.bin
 	tools/heatmap.py --heatmap build/stage12.heatmap build/small.elf .text.stage1 .text.stage2
 
 heatmap: build/heatmap.html
