@@ -27,7 +27,7 @@ def main():
         for sec_name in section_names:
             section = elf.get_section_by_name(sec_name)
             if section is None:
-                print(f"Warning: Section {sec_name} not found in {filename}.")
+                print(f"Warning: Section {sec_name} not found in {filename}.", file=sys.stderr)
                 continue
             sec_index = None
             for idx, sec in enumerate(elf.iter_sections()):
@@ -35,12 +35,12 @@ def main():
                     sec_index = idx
                     break
             if sec_index is None:
-                print(f"Could not determine index for section {sec_name}.")
+                print(f"Could not determine index for section {sec_name}.", file=sys.stderr)
                 continue
             target_sections_ordered.append((sec_index, section))
         
         if not target_sections_ordered:
-            print("No valid target sections found.")
+            print("No valid target sections found.", file=sys.stderr)
             sys.exit(1)
 
         # Compute cumulative offsets for each section as if they were concatenated.
@@ -58,10 +58,10 @@ def main():
                 with open(heatmap_filename, "rb") as hf:
                     heatmap_data = hf.read()
                 if len(heatmap_data) != total_sections_size:
-                    print(f"Error: Heatmap file size ({len(heatmap_data)}) does not match total sections size ({total_sections_size}).")
+                    print(f"Error: Heatmap file size ({len(heatmap_data)}) does not match total sections size ({total_sections_size}).", file=sys.stderr)
                     sys.exit(1)
             except Exception as e:
-                print(f"Error reading heatmap file: {e}")
+                print(f"Error reading heatmap file: {e}", file=sys.stderr)
                 sys.exit(1)
 
         # Build a mapping from section index to section object.
