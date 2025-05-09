@@ -23,7 +23,7 @@
 # Value of the $t3 register at IPL3 boot
 #define BOOT_T3_VALUE           0xA4000040
 
-#define inbuf           $s1
+#define inbuf           $at
 #define outbuf          $s2
 #define outbuf_end      $s0
 #define decomp_return   $a3
@@ -59,7 +59,7 @@
 # Convert a DMEM label into the address of the same function in ROM
 #define DMEM_TO_ROM(addr)       (header_start + (addr - _start) + 0x40)
 
-    .set at
+    .set noat
     .set noreorder
 
 # ============================
@@ -74,10 +74,11 @@
     .section .header, "ax"
 header_start:
 
-    # PI DOM1 parameters. The first byte is actually unused so we change the
-    # common value from 0x80 to 0x11, so that the opcode disasms as "andi"
-    # which means that it can also be run if necessary.
-    .long 0x31371240            # andi $s7, $t1, 0x1240
+    # PI DOM1 parameters. The first byte is actually unused, but we keep the
+    # standard 0x80 to make Everdrive happy: unfortunately the ROM won't boot
+    # when 0x80 is changed. As we want to run this opcode, we defined "inbuf"
+    # to use $at, so that this opcode doesn't crash.
+    .long 0x80371240            # lb $s7,4672($at)
 
 # Decode an elias gamma value into "prev_was_literal".
 # The value is stored *negated*, as that's useful for the caller.
@@ -195,7 +196,8 @@ upkr_decompress:
     # prev_was_literal now is non-zero
 
 .Lmainloop:
-    bge outbuf, outbuf_end, .Lexit          # check if we reached the end of the output buffer
+    slt $t0, outbuf, outbuf_end             # check if we reached the end of the output buffer
+    beqz $t0, .Lexit
      andi ctx, outbuf, UPKR_PARITY-1        # calculate the context index (depending on output buffer and parity)
     bal upkr_decode_bit                     # decode a bit: 1->match, 0->literal
      lax_stage0 $fp, .Lliteral
@@ -329,6 +331,8 @@ upkr_decode_bit:
 
     .section .stage1, "ax"
     .globl __stage1_start
+    .set at
+
 __stage1_start:
 
 #define C0_TAGLO                $28
