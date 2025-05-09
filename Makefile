@@ -10,6 +10,7 @@ endif
 
 SOURCE_DIR=.
 COMPRESSION_LEVEL=9
+SWIZZLE=1
 
 # 0 = PAL, 1 = NTSC, 2 = MPAL
 VIDEO_TYPE ?= 0
@@ -129,7 +130,11 @@ build/swizzle3: tools/swizzle3.cpp build/libupkr.a
 build/order.ld: $(STAGE2_OBJS) build/swizzle3
 	@echo "    [SWIZZLE] $@"
 	@mkdir -p build
-	build/swizzle3 $@ $(filter %.o,$^)
+	if [ ${SWIZZLE} -eq 1 ]; then \
+		./build/swizzle3 $@ $(BOOT_OBJS) $(STAGE2_OBJS); \
+	else \
+		./build/swizzle3 --quick $@ $(BOOT_OBJS) $(STAGE2_OBJS); \
+	fi
 
 # Build initial binary with all stages (uncompressed), using the optimized order
 build/small.elf: small.1.ld build/order.ld $(BOOT_OBJS) $(STAGE2_OBJS) build/rsp_u3d.inc

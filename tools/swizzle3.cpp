@@ -222,8 +222,8 @@ void progressBar(int currentStep, int totalSteps, const std::string& status) {
     char spinner = spinnerChars[spinnerIndex % 4];
     spinnerIndex++;
     
-    std::cout << "\r" << bar << " " << currentStep << "/" << totalSteps << " " << status << " " << spinner;
-    std::cout.flush();
+    std::cerr << "\r" << bar << " " << currentStep << "/" << totalSteps << " " << status << " " << spinner;
+    std::cerr.flush();
 }
 
 // -----------------------------------------------------------------------------
@@ -241,13 +241,14 @@ void progressBar(int currentStep, int totalSteps, const std::string& status) {
 // (in the format "file_name:section_name") for later use in a linker script.
 int main(int argc, char** argv) {
     if (argc < 3) {
-        std::cerr << "Usage: " << argv[0] << " [--prefix prefix_file] <output_include_file> <input1.o> [input2.o] ...\n";
+        std::cerr << "Usage: " << argv[0] << " [--prefix prefix_file] [--quick] <output_include_file> <input1.o> [input2.o] ...\n";
         return EXIT_FAILURE;
     }
 
     // 1. Parse optional prefix parameter.
     std::vector<uint8_t> prefixBuffer;
     int argIndex = 1;
+    bool quickMode = false;
     bool hasPrefix = false;
     if (std::string(argv[argIndex]) == "--prefix") {
         if (argc < 4) {
@@ -265,6 +266,11 @@ int main(int argc, char** argv) {
                                             std::istreambuf_iterator<char>());
         ifs.close();
         argIndex += 2;
+    }
+
+    if (std::string(argv[argIndex]) == "--quick") {
+        quickMode = true;
+        argIndex++;
     }
 
     if (argc - argIndex < 2) {
@@ -355,7 +361,7 @@ int main(int argc, char** argv) {
     // -------------------------------------------------------------------------
     // 5. Multiple-Round Deterministic Simulated Annealing.
     // -------------------------------------------------------------------------
-    int rounds = 10;                 // total rounds
+    int rounds = quickMode ? 1 : 10; // total rounds
     int tries_per_round = 10;        // different tries per round
     int iterations_per_round = 200;  // iterations per round per thread
     double initial_temp = 1.0;
@@ -389,8 +395,8 @@ int main(int argc, char** argv) {
         globalCost = bestRound.best_cost;
     }
 
-    std::cout << "\r                                                                \r";
-    std::cout.flush();
+    std::cerr << "\r                                                                \r";
+    std::cerr.flush();
 
     // -------------------------------------------------------------------------
     // 6. Output the Optimized Section Order as a Text File.
