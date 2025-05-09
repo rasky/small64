@@ -68,6 +68,26 @@ uint32_t vblank_time;
 #define TIME_30FPS     (93750000 / 2 / 30)
 #endif
 
+static void hw_reset_buggy_menus(void)
+{
+    // The code in this function performs some hardware deinitialization. None of
+    // this code is necessary for a true hardware cold boot (like using a repro
+    // cartridge or via USB on Summercart64 or 64drive).
+    //
+    // When booting via a menu, instead, the menu will have initialized the hardware
+    // already. In theory, the menu should reset the hardware to cold boot state
+    // before booting the ROM, but in practice they can get away not resetting
+    // hardware that is commonly reset by IPL3s. IPL3s in fact tend to re-reset
+    // the hardware also to account for the warm-reset scenario (press of the
+    // RESET button). In our case, we would prefer not having to waste precious
+    // bytes here, but at the same time we need our demo to be compatible with
+    // flashcarts, otherwise people won't be able to enjoy it.
+
+    // Summercart64's N64FlashcartMenu (as of 22515a6) does not turn off VI.
+    while ((*VI_V_CURRENT & ~1) != 0) {}
+    *VI_CTRL = 0;
+}
+
 static const uint32_t vi_regs_p[14] = {
 #if VIDEO_TYPE == 0
     /* PAL */
@@ -222,6 +242,7 @@ extern void gentorus(void* buffer);
 __attribute__((used))
 void demo(void)
 {
+    hw_reset_buggy_menus();
     ai_init();
     vi_init();
     ucode_init();
