@@ -1,0 +1,17 @@
+[package]
+name = "ipl3hasher-new"
+version = "1.2.1"
+edition = "2024"
+
+[build-dependencies]
+shaderc = { version = "0.9.1", features = ["build-from-source"] }
+
+[dependencies]
+bytemuck = "1.22.0"
+clap = { version = "4.5.37", features = ["derive"] }
+pollster = "0.4.0"
+wgpu = { version = "25.0.0", features = ["spirv"] }
+
+[profile.release]
+lto = true
+strip = true

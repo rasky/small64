@@ -1,0 +1,77 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  release:
+    types:
+      - created
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        version: [windows, linux, macos]
+        include:
+          - version: windows
+            os: windows-latest
+            executable: target/release/ipl3hasher-new.exe
+            package-name: ipl3hasher-new-windows
+            package-params: -c -a -f
+            package-extension: zip
+
+          - version: linux
+            os: ubuntu-latest
+            executable: target/release/ipl3hasher-new
+            package-name: ipl3hasher-new-linux
+            package-params: -czf
+            package-extension: tar.gz
+
+          - version: macos
+            os: macos-latest
+            executable: target/release/ipl3hasher-new
+            package-name: ipl3hasher-new-macos
+            package-params: -czf
+            package-extension: tgz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Download ipl3hasher-new repository
+        uses: actions/checkout@v4
+
+      - name: Set package version
+        uses: frabert/replace-string-action@v2
+        id: version
+        with:
+          pattern: '\/'
+          string: '${{ github.ref_name }}'
+          replace-with: '-'
+
+      - name: Build ipl3hasher-new
+        run: cargo b -r ${{ matrix.build-params }}
+
+      - name: Package executable
+        run: |
+          mkdir -p ./package
+          cp ${{ matrix.executable }} ./package/
+          cd ./package
+          tar ${{ matrix.package-params }} ./${{ matrix.package-name }}-${{ steps.version.outputs.replaced }}.${{ matrix.package-extension }} *
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.package-name }}-${{ steps.version.outputs.replaced }}
+          path: package/${{ matrix.package-name }}-${{ steps.version.outputs.replaced }}.${{ matrix.package-extension }}
+
+      - name: Upload release assets
+        if: github.event_name == 'release' && github.event.action == 'created'
+        uses: softprops/action-gh-release@v0.1.15
+        with:
+          files: |
+            package/${{ matrix.package-name }}-${{ steps.version.outputs.replaced }}.${{ matrix.package-extension }}
