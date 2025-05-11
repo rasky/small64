@@ -329,6 +329,16 @@ upkr_decode_bit:
 # code will hang if expansion pak is not present.
 #define NUM_RDRAM_BANKS           2
 
+# Fixed current initialization. If you uncomment this, the code will just
+# initialize the RDRAM with the specified fixed current value and hope for the
+# best. Otherwise, a longer code is compiled, that checks different values
+# and verifies which one works (using ~50 compressed bytes).
+# Using values like 0x20/0x28 appear to work on most (all?) consoles,
+# while value 0x30 has been verified to cause booting problems on some consoles
+# when cold. 
+//#define FIXED_CURRENT_INIT_VALUE   0x20
+
+
     .section .stage1, "ax"
     .globl __stage1_start
     .set at
@@ -412,7 +422,9 @@ __stage1_start:
 #define INIT_VALUE_OFF   (rdram_init_values - rdram_init_regs)
 
 rdram_init:
+#ifndef FIXED_CURRENT_INIT_VALUE
     lax_stage1 $v1, rdram_current_alternatives
+#endif
 
 .Lrdram_init_loop_start:
     lax_stage1 $v0, rdram_init_regs
@@ -451,7 +463,7 @@ rdram_init:
     addiu $t0, 16
     blt $t0, $t1, .Lcache_purge_loop
     
-    # We now need to decompress and run Stage 2 (the intro). To do so:
+    # We will need to decompress and run Stage 2 (the intro). To do so:
     #  outbuf = 0xA0000000 = uncached address of RDRAM where to write the intro
     #  outbuf_end = 0xA400xxxx = leftover from stage1 decompression, still works fine as "unbounded" decompression
     #                            (decompression will stop at the end of the compressed stream anyway)
@@ -461,17 +473,20 @@ rdram_init:
      lax_stage0 $ra, upkr_decompress
     li outbuf, 0xA0000000
 
-    # Switch to next current alternative
+#ifndef FIXED_CURRENT_INIT_VALUE
+    # Switch to next current alternative. In case the RAM doesn't work as configured
+    # now, this is the next setting we will try.
     lw $t0, 0($v1)
     sw $t0, %lo(.Lrdram_init_value_current - .Lrdram_init_entrypoint)($v0)
     addiu $v1, 4
 
     # Check if RDRAM is working properly. We initialized it with a fixed current
-    # value of 0x20. If it appears not to be working, we will switch to a fixed
-    # value of 0x30 as last ditch.
+    # value of 0x18. If it appears not to be working, we will switch to next
+    # alternative (0x20, 0x28, 0x30, 0x38), until we find one that works.
+    # NOTE: this code sequence is hand tuned to be very compressible.
     li $t0, 0xFFFFFFFF
 
-    li $t2, 0xA0000000
+    li $t2, 0xA0000000  # Bank 0
     sw $t0, ($t2)
     addiu $t2, 4
     sw $t0, ($t2)
@@ -498,7 +513,7 @@ rdram_init:
      lax_stage1 $ra, .Lrdram_init_loop_start
 1:
 
-    li $t2, 0xA0200000
+    li $t2, 0xA0200000  # Bank 2
     sw $t0, ($t2)
     addiu $t2, 4
     sw $t0, ($t2)
@@ -524,8 +539,10 @@ rdram_init:
     bnel $t0, $t1, 1f
      lax_stage1 $ra, .Lrdram_init_loop_start
 1:
+#endif
 
-    # Exit stage 1
+    # Exit stage 1. Will jump to either stage1 again (if RAM test failed), or
+    # to stage2 (if RAM test passed).
     jr $ra
      lw decomp_return, 0($v0)
 
@@ -538,16 +555,12 @@ rdram_init:
 .macro chip_init_regs   chip_id
     .if (\chip_id < NUM_RDRAM_BANKS*2)
         .long RDRAM_REGS(INITID)   + RDRAM_REG_DEVICE_ID
-        #.long RDRAM_REGS(\chip_id) + RDRAM_REG_MODE
-        #.long RDRAM_REGS(\chip_id) + RDRAM_REG_RAS_INTERVAL
     .endif
 .endm
 
 .macro chip_init_values chip_id
     .if (\chip_id < NUM_RDRAM_BANKS*2)
         .long RDRAM_REG_DEVICE_ID_MAKE(\chip_id)
-        #.long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x30)
-        #.long RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)
     .endif
 .endm
 
@@ -562,17 +575,17 @@ rdram_init_regs:
     .long RDRAM_REGS_BROADCAST + RDRAM_REG_DELAY        // 7
     .long RDRAM_REGS_BROADCAST + RDRAM_REG_DEVICE_ID    // 8
     .long RDRAM_REGS_BROADCAST + RDRAM_REG_REF_ROW      // 9
-    .long RDRAM_REGS_BROADCAST + RDRAM_REG_MODE
-    .long RDRAM_REGS_BROADCAST + RDRAM_REG_RAS_INTERVAL
+    .long RDRAM_REGS_BROADCAST + RDRAM_REG_MODE         // 10
+    .long RDRAM_REGS_BROADCAST + RDRAM_REG_RAS_INTERVAL // 11
     chip_init_regs 0
     chip_init_regs 2
     chip_init_regs 4
     chip_init_regs 6
-    .long RI_REFRESH                                    // 10
-    .long PIF_COMMAND                                   // 11
-    .long 0                                             // 12 (terminator)
+    .long RI_REFRESH                                    // 12
+    .long PIF_COMMAND                                   // 13
+    .long 0                                             // 14 (terminator)
 .Lrdram_init_entrypoint:
-    .long __stage2_entrypoint                           // 13 (stage2 entrypoint)
+    .long __stage2_entrypoint                           // 15 (stage2 entrypoint)
 
     .type rdram_init_regs, @object
     .size rdram_init_regs, . - rdram_init_regs
@@ -589,21 +602,28 @@ rdram_init_values:
     .long RDRAM_REG_DEVICE_ID_MAKE(INITID)                          // 8
     .long 0                                                         // 9
 .Lrdram_init_value_current:
-    .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x18)
-    .long RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)
+#ifdef FIXED_CURRENT_INIT_VALUE
+    .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(FIXED_CURRENT_INIT_VALUE)  // 10
+#else
+    .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x18)  // 10
+#endif
+    .long RDRAM_REG_RASINTERVAL_MAKE(1, 7, 10, 4)                   // 11
     chip_init_values 0
     chip_init_values 2
     chip_init_values 4
     chip_init_values 6
     .long RI_REFRESH_AUTO | RI_REFRESH_OPTIMIZE |  RI_REFRESH_CLEANDELAY(52) \
         | RI_REFRESH_DIRTYDELAY(54) \
-        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)          // 10
-    .long PIF_COMMAND_ACK                                           // 11   
-    .long _gp                                                       // 12 (gp value in stage2)
+        | RI_REFRESH_MULTIBANK((1 << NUM_RDRAM_BANKS) - 1)          // 12
+    .long PIF_COMMAND_ACK                                           // 13   
+    .long _gp                                                       // 14 (gp value in stage2)
 
     .type rdram_init_values, @object
     .size rdram_init_values, . - rdram_init_values
 
+#ifndef FIXED_CURRENT_INIT_VALUE
+    # Alternative RDRAM current values. Since the current value is scrambled in
+    # many bits in a weird way (see RDRAM_REG_MODE_CC), we just keep all alternatives in a table.
 rdram_current_alternatives:
     .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x20)
     .long RDRAM_REG_MODE_DE | RDRAM_REG_MODE_AS | 0x40000000 | RDRAM_REG_MODE_CC(0x28)
@@ -612,3 +632,4 @@ rdram_current_alternatives:
 
     .type rdram_current_alternatives, @object
     .size rdram_current_alternatives, . - rdram_current_alternatives
+#endif
