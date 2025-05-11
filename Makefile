@@ -120,6 +120,13 @@ build/libupkr.a:
 	cp tools/upkr/c_library/target/release/libupkr.a build/
 	cp tools/upkr/c_library/upkr.h build/
 
+# ipl3hasher tool
+build/ipl3hasher-new$(EXE):
+	@echo "    [CARGO] $@"
+	@mkdir -p build
+	cd tools/ipl3hasher-new && cargo build --release --quiet
+	cp tools/ipl3hasher-new/target/release/ipl3hasher-new$(EXE) build/
+
 # Swizzle tool
 build/swizzle3: tools/swizzle3.cpp build/libupkr.a
 	@echo "    [TOOL] $@"
@@ -179,6 +186,11 @@ $(ROM_NAME): build/small.elf small.2.ld build/stage12.bin $(FINAL_SRCS)
 run: $(ROM_NAME)
 	sc64deployer upload --direct $(ROM_NAME) && sc64deployer debug --isv 0x3FF0000
 
+sign: $(ROM_NAME) build/ipl3hasher-new$(EXE)
+	@echo "    [SIGN] $(ROM_NAME)"
+	YBITS=$(tools/mips_free_bits.py --base 0x40 --skip 4 --limit 32 build/stage0.bin) \
+		build/ipl3hasher-new$(EXE) --sign --cic 6102 --y-bits ${YBITS} --y-init 0 $(ROM_NAME)
+
 disasm: build/small.elf
 	$(N64_OBJDUMP) -D build/small.elf
 
@@ -187,4 +199,4 @@ clean:
 
 -include $(wildcard build/*.d)
 
-.PHONY: all disasm run heatmap stats
+.PHONY: all disasm run heatmap stats sign
