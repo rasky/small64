@@ -363,9 +363,9 @@ int main(int argc, char** argv) {
     // -------------------------------------------------------------------------
     int rounds = quickMode ? 1 : 10; // total rounds
     int tries_per_round = 10;        // different tries per round
-    int iterations_per_round = 200;  // iterations per round per thread
+    int iterations_per_round = 300;  // iterations per round per thread
     double initial_temp = 1.0;
-    double cooling_rate = 0.995;
+    double cooling_rate = 0.996;
 
     for (int round = 0; round < rounds && !g_stop.load(); round++) {
         std::string status = "Optimizing... (" + std::to_string(globalCost) + " bytes)";
