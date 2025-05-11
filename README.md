@@ -126,32 +126,28 @@ decompression will clear that memory.
 Let's now see how the ROM is actually laid out:
 
            ---------------------------------
-             Post-stage0 (0x0000 - 0x003F)
+              Stage 0 ROM (0x0000 - 0x003F)
            ---------------------------------
-               Stage 0 (0x0040 - 0x019B)
+               Stage 0 (0x0040 - 0x0168)
            ---------------------------------
-           Compressed RDRAM init (0x19B - ~0x23B)
+           Compressed RDRAM init (0x168 - ~0x232)
            ---------------------------------
-            Compressed Intro (~0x23B - ~0xFF7)
+            Compressed Intro (~0x232 - ~0xFFC)
            ---------------------------------
-           IPL2 hash matching cookie (0xFF8-0xFFF)
+           IPL2 hash matching cookie (0xFFC-0xFFF)
            ---------------------------------
 
 So how do you decompress an intro if RAM is not available? That's what we do:
 
  * IPL2 loads what it believes to be the "IPL3" (offsets 0x40-0x1000) into 
    DMEM (RSP static RAM for data).
- * Stage 0 is where execution starts (it's offset 0x40 in the ROM, which is
-   where the IPL3 entrypoint is).
+ * Stage 0 is where execution starts. It's offset 0x40 in the ROM, which is
+   where the IPL3 entrypoint is.
  * Stage 0 contains the upkr decompression code and the payload for the next
-   stages. First it decompresses Stage 1 (RDRAM init) into the CPU data cache (!). 
-   We use the data cache as it allows for 8-bit reads/writes that are needed for
-   upkr to work correctly.
- * After decompression, it jumps to the Post-stage0 code in *ROM*. This is
-   normally where the header is, but we put our small piece of code there.
-   This code copies the decompressed Stage 1 from CPU data cache to IMEM.
-   This is necessary because the CPU cannot execute code from the data cache.
-   Then, it jumps to IMEM to to run it.
+   stages. It decompresses Stage 1 (RDRAM init) into IMEM. Notice that part of
+   Stage 0 code is put in what is normally the header space (0x0-0x3F), and
+   since that part isn't loaded into DMEM by IPL2, it is run directly from ROM.
+ * After decompression, it jumps to IMEM to run Stage 1.
  * Now Stage 1 runs. This is the RDRAM init code. It initializes RDRAM so that
    we finally have our 4 MiB of RAM available for the intro. Then, it jumps
    back to Stage 0.
@@ -164,12 +160,12 @@ So how do you decompress an intro if RAM is not available? That's what we do:
    actual intro begins!
 
 Wow, quite a journey! All in all, we managed to have to first compressed
-byte of the intro at offset 0x23B, meaning that the intro itself has to fit
-into 3525 (compressed) bytes.
+byte of the intro at offset 0x232, meaning that the intro itself has to fit
+into 3534 (compressed) bytes.
 
 ## GPU hash cracking for an intro?
 
-We reserved the last 8 bytes of the ROM for the bruteforcing cookie. What is it?
+We reserved the last 4 bytes of the ROM for the bruteforcing cookie. What is it?
 
 As explained above, IPL1/2 will verify the IPL3 checksum using a bespoke algorithm,
 to make sure it matches a hardcoded value. If this check fails, the ROM won't boot,
@@ -180,7 +176,19 @@ last 8 bytes of the ROM testing millions and millions of values
 until we find one that matches the requested checksum. This is a process
 that can take multiple hours on modern GPUs (eg: ~18/24 hours on a Apple M1 Pro).
 This technique is also used by Libdragon to release their own open-source
-IPL3s, so [tooling for this](https://github.com/rasky/ipl3hasher) was already available.
+IPL3s, so [tooling for this](https://github.com/Polprzewodnikowy/ipl3hasher-new) was already available.
+
+To perform the cracking we use two sets of free bits (called respectively 
+X bits and Y bits by the tool). The X bits must be the last 32 bits of the ROM,
+so there's not much to do (as explained, we reserve them). The Y bits instead
+can be everywhere in the ROM; the tool supports specifying up to 32 bits for Y
+bits, though most signing can succeed with only 20 of them. Since our ROM is
+pretty full, we use another tool we wrote ([mips_free_bits.py](https://github.com/rasky/small64/blob/main/tools/mips_free_bits.py))
+to search for empty bits in stage0. In fact, many MIPS opcodes don't really use
+all of the 32 bits that made the opcode, but leave a few them undefined. The
+VR4300 CPU luckily just ignores those, so we can use them as our Y bits for
+the tool.
+
 
 ## Music
 
