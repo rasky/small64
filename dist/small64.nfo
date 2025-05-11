@@ -13,13 +13,28 @@ Music by Pestis
 Greetings: korgeaux, Buu342, Tharo, tykkiman, the_kovic, networkfusion,
 Dresdenboy, exoticorn, Pellicus, Friol, Mod3m, Woody
 
-To run on Nintendo 64 hardware, use a flashcart like Summercart64, EverDrive64
-or 64Drive. Use the version matching your TV type (PAL, NTSC or MPAL). If it
-doesn't boot right away, try running another ROM for a few seconds before
-(because of a bug, the console needs to be slightly warmed up for the intro
-to boot).
+*************
+FINAL VERSION
+*************
+
+This is the final release of Small64. Several bugs and compatibility issues
+on real hardware have been fixed.
+
+* Repro cartridges (like Retroblaster). Please make sure to use at least
+  RetroBlaster 2.2.4 software.
+* Summercart64: both via USB (direct or bootloader mode), or via N64FlashcartMenu
+  (make sure to use the latest version of the menu).
+* EverDrive (tested on several variants). Use ED OS V3 (at least 3.06). If you
+  see a red flash and then nothing, disable "CRC check" in the menu option.
+* 64drive, either via USB or via the menu.
+
+Make sure to load the version matching your TV type (PAL, NTSC or M-PAL).
 
 To run on an emulator, use Ares: https://ares-emu.net. It's the only emulator
-accurate enough to run it. Use the NTSC version.
+accurate enough to run it. 
+
+The intro is verified to run correctly on hardware. If it doesn't work for you,
+it's most likely a bug in the way you are testing it. Try updating all the tools
+you're using.
 
 Source code: https://github.com/rasky/small64
