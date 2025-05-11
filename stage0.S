@@ -309,10 +309,11 @@ upkr_decode_bit:
 # Full RDRAM initialization code can be seen in libdragon's IPL3:
 # https://github.com/DragonMinded/libdragon/tree/trunk/boot/rdram.c
 #
-# This version here does not follow the current calibration process described
-# by Rambus datasheets, but configures chips with a fixed output current
-# (setting the RDRAM mode CC bits to 0x30). This seems to work reasonably
-# fine for slightly warmed up consoles, while it sometimes fails for cold units.
+# This version here follows a very simplified current calibration process.
+# In alternative, if you define FIXED_CURRENT_INIT_VALUE, it configures chips
+# with a fixed output current, saving ~50 compressed bytes. Fixed values of
+# 0x20/0x28 appear to work fine on most consoles, but more testing would be
+# required.
 # 
 # Also, we don't configure the automatic current finetuning; that is meant
 # to make the current output by the chips follow temperature changes, but for
