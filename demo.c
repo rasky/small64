@@ -43,7 +43,11 @@
 #define FB_WIDTH      320
 #define FB_HEIGHT     240
 #define FB_SCALE_X    (FB_WIDTH * 1024 / 640)
+#if VIDEO_TYPE == 0 // PAL
+#define FB_SCALE_Y    (FB_HEIGHT * 1024 / 288)
+#else
 #define FB_SCALE_Y    (FB_HEIGHT * 1024 / 240)
+#endif
 
 #define RGBA16(r,g,b,a)   (((r)<<11) | ((g)<<6) | ((b)<<1) | (a))
 #define RGBA32(r,g,b,a)   (((int)(r)<<24) | ((int)(g)<<16) | ((int)(b)<<8) | (int)(a))
@@ -94,7 +98,7 @@ static const uint32_t vi_regs_p[14] = {
     0x3202, (uint32_t)FB_BUFFER_0,
     FB_WIDTH, 0, 0,
     0x0404233a, 0x00000271, 0x00150c69,
-    0x0c6f0c6e, 0x00800300, 0x005f0239, 0x0009026b,
+    0x0c6f0c6e, 0x00800300, 0x002d026d, 0x0009026b,
     FB_SCALE_X, FB_SCALE_Y,
 #elif VIDEO_TYPE == 1
     /* NTSC */
