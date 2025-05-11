@@ -188,8 +188,7 @@ run: $(ROM_NAME)
 
 sign: $(ROM_NAME) build/ipl3hasher-new$(EXE)
 	@echo "    [SIGN] $(ROM_NAME)"
-	YBITS=$(tools/mips_free_bits.py --base 0x40 --skip 4 --limit 32 build/stage0.bin) \
-		build/ipl3hasher-new$(EXE) --sign --cic 6102 --y-bits ${YBITS} --y-init 0 $(ROM_NAME)
+	build/ipl3hasher-new$(EXE) --sign --cic 6102 --y-bits $$(tools/mips_free_bits.py --base 0x40 --skip 4 --limit 32 build/stage0.bin) --y-init 0 $(ROM_NAME)
 
 disasm: build/small.elf
 	$(N64_OBJDUMP) -D build/small.elf
