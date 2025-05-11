@@ -64,7 +64,7 @@ int64_t SinTable[8192];
 int64_t PowTable[8192];
 int32_t currentRow;
 
-void music_init()
+static void music_init(void)
 {
     const int64_t K = 3294199; // round(math.pi * 2 / 8192 * (1 << 32)) but optimized with matlab
     int64_t X = (int64_t)(1) << 32;
@@ -81,7 +81,7 @@ void music_init()
     }
 }
 
-void music_render(int16_t *buffer)
+static void music_render(int16_t *buffer)
 {
     int32_t pos = currentRow;
 

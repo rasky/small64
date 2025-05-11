@@ -225,7 +225,7 @@ void dp_begin_frame(void)
 }
 
 
-void music_poll(void)
+static void music_poll(void)
 {
     int16_t *ai_buffer = ai_poll();
     if (ai_buffer) {
