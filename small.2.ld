@@ -20,11 +20,10 @@ SECTIONS {
         *(.stage12bin)
     } > dmem
 
-    .text.signature 0xA4000FF9 : {
-        /* IPL2 signature. Longest ever bruterforced for libdragon
-           IPL3 was 7 bytes. */
-        BYTE(0x00)
-        SHORT(0x0000)
+    .text.signature 0xA4000FFC : {
+        /* IPL2 signature. We need to reserve 32-bit at the end of the ROM,
+           plus we will use various unused bits in stage0 as found by 
+           mips_free_bits.py */
         LONG(0x00000000)
     } > dmem
 
