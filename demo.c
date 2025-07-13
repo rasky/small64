@@ -28,13 +28,17 @@
 #define FB_BUFFER_2         ((void*)0xA0160000)
 
 #define AI_BUFFERS          ((void*)0xA0190800)
-#define DELAY_BUFFER        ((void*)0x801A0000)
+#define SIN_TABLE           ((void*)0x801A0000)
+#define POW_TABLE           ((void*)0x801B0000)
 
 #define TEXTURE_BUFFER      ((void*)0xA0200000)
 
 #define VERTEX_BUFFER       ((void*)0xA0210000)
 #define RDP_BUFFER          ((void*)0xA0220000)
 #define Z_BUFFER            ((void*)0xA03D0000)
+
+int64_t* SinTable = (int64_t*)SIN_TABLE;
+int64_t* PowTable = (int64_t*)POW_TABLE;
 
 #define AI_BUFFER_SIZE              12800
 #include "music.c"

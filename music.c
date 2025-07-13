@@ -59,9 +59,6 @@ SynthState Synths[] = {
 int32_t rng = 1;
 
 // UNINITIALIZED DATA (should be filled with zeros)
-
-int64_t SinTable[8192];
-int64_t PowTable[8192];
 int32_t currentRow;
 
 static void music_init(void)
